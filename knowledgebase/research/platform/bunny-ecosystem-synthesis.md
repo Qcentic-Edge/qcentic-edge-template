@@ -67,9 +67,11 @@ This repo = **living template**; product apps are cloned from it; template keeps
 
 ## Open questions to resolve at build time (next phase)
 
-0. **Local-prod parity solved**: run self-hosted `ghcr.io/tursodatabase/libsql-server` (sqld) as the compose `db` service — same Hrana-over-HTTP protocol as bunny, same `url`+`authToken` config shape (local `http://db:8080`, prod `libsql://[id].lite.bunnydb.net`), optional JWT bearer auth via `SQLD_AUTH_JWT_KEY_FILE` to mimic bunny tokens. Image is amd64-only (fine under Docker Desktop emulation); embedded-replica mode unsupported on bare sqld (we're remote-only, unaffected). Env ladder: file mode (unit tests) → local sqld (default dev) → bunny (prod + one smoke test).
-1. Fork `turso/libsql-laravel` for Laravel 13 — confirm driver + SQLiteConnection internals still fit Laravel 13's database layer.
-2. FFI route vs Debian base vs custom extension — decide after testing `turso/libsql` native lib on alpine musl.
-3. Live-test turso/libsql PHP client against a real bunny DB endpoint (free during preview).
-4. Queue/scheduler supervision inside the FrankenPHP container (supervisord vs s6 vs shell init) + SIGTERM behavior of each.
-5. Whether `SESSION_DRIVER=database` + CDN endpoint (no sticky sessions) needs any cookie tuning across regions.
+0. **Local-prod parity solved** ✅ (2026-08-21): dev compose runs `ghcr.io/tursodatabase/libsql-server` (sqld); app talks Hrana over HTTP at `http://db:8080`. Env ladder: file mode (unit tests) → local sqld (dev) → bunny (prod).
+1. Fork `turso/libsql-laravel` for Laravel 13 ✅ (2026-08-21): no need to fork upstream ourselves — `Ben52/libsql-laravel` already carries the L13 fixes (connection factory signatures, cursor() TypeError, PDO getAttribute for the database queue driver, URL-based config, empty-string CharBox patch). Adopted as our fork `mehdiamenein/libsql-laravel`, installed via composer VCS repo; patch URL repointed at our fork.
+2. FFI route vs Debian base ✅ (2026-08-21): Debian base chosen (`dunglas/frankenphp:1.12.7-php8.4-bookworm`, +~150MB). `install-php-extensions ffi` works; `ffi.enable=1` set in both dev and runtime stages. Alpine dropped (musl has no turso native lib).
+3. Live-test turso/libsql PHP client against a real bunny DB endpoint — still open; local sqld parity validated (dev + prod bundled + prod remote-style), bunny endpoint itself untested (needs a Bunny account/DB).
+4. Queue/scheduler supervision inside the FrankenPHP container (supervisord vs s6 vs shell init) + SIGTERM behavior — still open; current compose runs them as separate services, fine for docker-compose deploys.
+5. Whether `SESSION_DRIVER=database` + CDN endpoint (no sticky sessions) needs any cookie tuning across regions — still open.
+
+Validation log (2026-08-21): dev stack migrate + filament login + vite HMR + `php artisan test` green (tests hermetic via `tests/TestCase.php` config overrides — container env beats phpunit `<env>` because Laravel's env() reads `$_SERVER` first and PHPUnit force does not touch `$_SERVER`); prod bundled-sqld and prod external-sqld (Bunny simulation) both migrate + serve + healthy; queue worker processes jobs on libSQL.

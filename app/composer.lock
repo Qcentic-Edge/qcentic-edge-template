@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "385a41ad83bcb53f93022716a44962df",
+    "content-hash": "01d9a06e17096349789d3c4e1fed68ed",
     "packages": [
         {
             "name": "anourvalar/eloquent-serialize",
@@ -510,6 +510,54 @@
                 }
             ],
             "time": "2026-03-20T21:10:52+00:00"
+        },
+        {
+            "name": "cweagans/composer-patches",
+            "version": "1.7.3",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/cweagans/composer-patches.git",
+                "reference": "e190d4466fe2b103a55467dfa83fc2fecfcaf2db"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/cweagans/composer-patches/zipball/e190d4466fe2b103a55467dfa83fc2fecfcaf2db",
+                "reference": "e190d4466fe2b103a55467dfa83fc2fecfcaf2db",
+                "shasum": ""
+            },
+            "require": {
+                "composer-plugin-api": "^1.0 || ^2.0",
+                "php": ">=5.3.0"
+            },
+            "require-dev": {
+                "composer/composer": "~1.0 || ~2.0",
+                "phpunit/phpunit": "~4.6"
+            },
+            "type": "composer-plugin",
+            "extra": {
+                "class": "cweagans\\Composer\\Patches"
+            },
+            "autoload": {
+                "psr-4": {
+                    "cweagans\\Composer\\": "src"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "BSD-3-Clause"
+            ],
+            "authors": [
+                {
+                    "name": "Cameron Eagans",
+                    "email": "me@cweagans.net"
+                }
+            ],
+            "description": "Provides a way to patch Composer packages.",
+            "support": {
+                "issues": "https://github.com/cweagans/composer-patches/issues",
+                "source": "https://github.com/cweagans/composer-patches/tree/1.7.3"
+            },
+            "time": "2022-12-20T22:53:13+00:00"
         },
         {
             "name": "danharrin/date-format-converter",
@@ -7939,6 +7987,131 @@
             "time": "2025-12-02T11:56:42+00:00"
         },
         {
+            "name": "turso/libsql",
+            "version": "v0.2.5",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/tursodatabase/libsql-php.git",
+                "reference": "5d23eef985edb9335093dcca9ac0a6b1b0ce6467"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/tursodatabase/libsql-php/zipball/5d23eef985edb9335093dcca9ac0a6b1b0ce6467",
+                "reference": "5d23eef985edb9335093dcca9ac0a6b1b0ce6467",
+                "shasum": ""
+            },
+            "require": {
+                "ext-ffi": "*",
+                "php": ">=8.3"
+            },
+            "require-dev": {
+                "friendsofphp/php-cs-fixer": "^3.64",
+                "phpstan/phpstan": "2.0.x-dev",
+                "phpunit/phpunit": "^11"
+            },
+            "type": "library",
+            "autoload": {
+                "files": [
+                    "src/functions.php"
+                ],
+                "psr-4": {
+                    "Libsql\\": "src/",
+                    "Libsql\\Tests\\": "tests/"
+                },
+                "classmap": [
+                    "src/"
+                ]
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Levy A.",
+                    "email": "levyddsa@gmail.com"
+                }
+            ],
+            "description": "libSQL bindings for PHP",
+            "support": {
+                "issues": "https://github.com/tursodatabase/libsql-php/issues",
+                "source": "https://github.com/tursodatabase/libsql-php/tree/v0.2.5"
+            },
+            "time": "2025-04-02T12:55:17+00:00"
+        },
+        {
+            "name": "turso/libsql-laravel",
+            "version": "dev-main",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/mehdiamenein/libsql-laravel.git",
+                "reference": "2c549002b885152b9331c028547134fd5a2095a6"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/mehdiamenein/libsql-laravel/zipball/2c549002b885152b9331c028547134fd5a2095a6",
+                "reference": "2c549002b885152b9331c028547134fd5a2095a6",
+                "shasum": ""
+            },
+            "require": {
+                "cweagans/composer-patches": "^1.7",
+                "illuminate/database": "^11.0|^12.0|^13.0",
+                "spatie/laravel-package-tools": "^1.16",
+                "turso/libsql": "^0.2.5"
+            },
+            "require-dev": {
+                "friendsofphp/php-cs-fixer": "^3.64",
+                "orchestra/testbench": "^9.9||^10.0||^11.0",
+                "pestphp/pest": "^3.7",
+                "phpstan/phpstan": "^2.1"
+            },
+            "default-branch": true,
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Libsql\\Laravel\\LibsqlServiceProvider"
+                    ]
+                },
+                "composer-exit-on-patch-failure": true,
+                "patches": {
+                    "turso/libsql": {
+                        "Fix CharBox crash on empty strings (zero-length pointer)": "https://raw.githubusercontent.com/mehdiamenein/libsql-laravel/main/patches/libsql-charbox-empty.patch"
+                    }
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Libsql\\Laravel\\": "src/",
+                    "Libsql\\Laravel\\Tests\\": "tests/"
+                },
+                "files": [
+                    "src/helpers.php"
+                ]
+            },
+            "scripts": {
+                "test": [
+                    "@php vendor/bin/pest"
+                ],
+                "test-feature": [
+                    "@php vendor/bin/pest --testsuite=Feature"
+                ],
+                "test-unit": [
+                    "@php vendor/bin/pest --testsuite=Unit"
+                ]
+            },
+            "authors": [
+                {
+                    "name": "Levy A.",
+                    "email": "levyddsa@gmail.com"
+                }
+            ],
+            "support": {
+                "source": "https://github.com/mehdiamenein/libsql-laravel/tree/main"
+            },
+            "time": "2026-08-21T20:44:13+00:00"
+        },
+        {
             "name": "ueberdosis/tiptap-php",
             "version": "2.1.1",
             "source": {
@@ -10458,7 +10631,9 @@
     ],
     "aliases": [],
     "minimum-stability": "stable",
-    "stability-flags": {},
+    "stability-flags": {
+        "turso/libsql-laravel": 20
+    },
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {

@@ -1,26 +1,26 @@
 # my-base-filament-template
 
-Production-ready [Filament](https://filamentphp.com) 5.x / Laravel 13 template, packaged as a hardened Docker image with three Compose stacks: **dev**, **prod**, and **build**.
+Production-ready [Filament](https://filamentphp.com) 5.x / Laravel 13 template, packaged as a hardened Docker image with three Compose stacks: **dev**, **prod**, and **build**. Database is **libSQL** everywhere — a local `sqld` server in dev, a managed libSQL database (e.g. [Bunny Database](https://bunny.net/docs/database/quickstart), Turso) in production.
 
 ## What's inside
 
 - **Filament 5 admin panel** (`/admin`) + app panel, user model with `is_admin` gate
-- **FrankenPHP 1.12 / PHP 8.4** runtime, non-root (`uid 1000`), read-only root filesystem, no capabilities, opcache with `validate_timestamps=0` (immutable-code optimizations)
+- **FrankenPHP 1.12 / PHP 8.4** runtime (Debian base — the libSQL client's native library is glibc-only), non-root (`uid 1000`), read-only root filesystem, no capabilities, opcache with `validate_timestamps=0` (immutable-code optimizations)
+- **libSQL database layer** via [turso/libsql-laravel](https://github.com/tursodatabase/libsql-laravel), installed from the Laravel 13-compatible fork [mehdiamenein/libsql-laravel](https://github.com/mehdiamenein/libsql-laravel) (constraint + runtime fixes; FFI-based client). Session/cache/queue all use the `database` driver on libSQL — zero extra services.
 - **Multi-stage Docker build**: dev dependencies and node never reach the production image; frontend assets are compiled once and copied in as `public/build`
-- **Postgres 17** as the database (session/cache/queue all in the database — zero extra services)
 - **Three Compose files**:
 
 | File | Purpose |
 |---|---|
-| `docker-compose.dev.yml` | Local development: bind-mounted source, Vite HMR on `:5173`, `artisan serve` on `:8090`, Postgres on `:5432`, hot reload for PHP + assets |
-| `docker-compose.prod.yml` | Production: runs a published image (read-only, hardened), one-shot migrate, queue worker, scheduler. Optional bundled Postgres via `--profile bundled-db`, or point `DB_HOST` at a managed database (Bunny CDN, DigitalOcean, Supabase, …) |
+| `docker-compose.dev.yml` | Local development: bind-mounted source, Vite HMR on `:5173`, `artisan serve` on `:8090`, local libSQL server (`sqld`) on `:8181`, hot reload for PHP + assets |
+| `docker-compose.prod.yml` | Production: runs a published image (read-only, hardened), one-shot migrate, queue worker, scheduler against a remote libSQL database (Bunny Database, Turso, or your own sqld). Optional bundled sqld via `--profile bundled-db` for local full-stack testing |
 | `docker-compose.build.yml` | Builds the production image locally (default `linux/amd64`). Nothing is pushed unless you explicitly run `build --push` with your own registry user |
 
 ## Quick start (dev)
 
 ```bash
 cp .env.docker.dev.example .env.docker.dev
-# fill in APP_KEY (see comment in the file) and DB_PASSWORD
+# fill in APP_KEY (see comment in the file)
 
 docker compose -f docker-compose.dev.yml --env-file .env.docker.dev up -d
 ```
@@ -28,7 +28,7 @@ docker compose -f docker-compose.dev.yml --env-file .env.docker.dev up -d
 - App: http://localhost:8090
 - Admin: http://localhost:8090/admin/login
 - Vite HMR: http://localhost:5173
-- Postgres: `localhost:5432`
+- libSQL (Hrana over HTTP): `http://localhost:8181`
 
 Create an admin user:
 
@@ -52,47 +52,58 @@ IMAGE_NAME=<registry-user>/my-base-filament-template:latest \
   docker compose -f docker-compose.build.yml build --push
 ```
 
-### Run with a managed database (e.g. Bunny CDN managed Postgres)
+### Run against a managed libSQL database (Bunny Database, Turso, ...)
 
 ```bash
 cp .env.docker.prod.example .env.docker.prod
-# set APP_KEY, DB_HOST, DB_PORT, DB_DATABASE, DB_USERNAME, DB_PASSWORD, IMAGE_NAME
+# set APP_KEY, DB_URL (libsql://[id].lite.bunnydb.net), DB_AUTH_TOKEN, IMAGE_NAME
 
 docker compose -f docker-compose.prod.yml --env-file .env.docker.prod up -d
 ```
 
-The `migrate` service waits for the database to accept TCP connections, runs `php artisan migrate --force` once, then the app, queue worker, and scheduler start.
+The `migrate` service waits for the database to accept connections, runs `php artisan migrate --force` once, then the app, queue worker, and scheduler start.
 
-TLS is terminated upstream (Bunny CDN edge, Traefik, Caddy, nginx, …) — the container serves plain HTTP on `:8080`.
+On bunny.net Magic Containers you don't even need `DB_URL`/`DB_AUTH_TOKEN`: link your Bunny Database to the app and bunny injects `BUNNY_DATABASE_URL` + `BUNNY_DATABASE_AUTH_TOKEN`, which the compose file picks up automatically.
 
-### Run with a bundled Postgres instead
+TLS is terminated upstream (bunny edge, Traefik, Caddy, nginx, …) — the container serves plain HTTP on `:8080`.
+
+### Run with a bundled local sqld instead
 
 ```bash
 docker compose -f docker-compose.prod.yml --env-file .env.docker.prod --profile bundled-db up -d
 ```
 
-Leave `DB_HOST` empty; compose defaults it to the bundled `db` service.
+Leave `DB_URL` empty; compose defaults it to the bundled sqld service.
+
+## Tests
+
+Tests run hermetically (sqlite `:memory:`, array session/cache) and are immune to the container's env vars — see `app/tests/TestCase.php`:
+
+```bash
+docker compose -f docker-compose.dev.yml --env-file .env.docker.dev exec app php artisan test
+```
 
 ## Layout
 
 ```
 app/                       Laravel + Filament application
-  Dockerfile               multi-stage: app → dev → assets → runtime
-docker-compose.dev.yml     dev stack
-docker-compose.prod.yml    prod stack (external or bundled DB)
+  Dockerfile               multi-stage: app → dev → assets → runtime (Debian + FFI)
+docker-compose.dev.yml     dev stack (local sqld)
+docker-compose.prod.yml    prod stack (remote libSQL or bundled sqld)
 docker-compose.build.yml   image build (local, no push by default)
 .env.docker.*.example      copy to .env.docker.* and fill in
 knowledgebase/             Filament 5.x research notes (docs cache, plugin registry)
 ```
 
+## Notes
+
+- **libSQL driver**: `turso/libsql-laravel` is a technical preview and does not support Laravel 13 upstream yet. This template installs the maintained fork `mehdiamenein/libsql-laravel` via a composer VCS repository. The fork carries Laravel 13 fixes (connection factory signatures, cursor() TypeError, PDO attribute probes used by the database queue driver) plus a patch for a native client crash on empty strings.
+- **Debian base, not alpine**: the `turso/libsql` PHP client loads a glibc native library through FFI; no musl build exists.
+- **Bunny Database caveats** (managed libSQL): 1 GB per DB, up to ~10s replication window, no read-your-writes on replicas. Fine for template-scale apps; see `knowledgebase/research/platform/bunny_database_*.md`.
+
 ## Maintenance
 
 - Filament docs research flow lives in `.agents/skills/filament-research/` — notes are cached under `knowledgebase/` with source URL + fetch date, and `https://filamentphp.com/docs/5.x/` is the source of truth.
-- Run the test suite inside the dev stack:
-
-```bash
-docker compose -f docker-compose.dev.yml --env-file .env.docker.dev exec app php artisan test
-```
 
 ## License
 

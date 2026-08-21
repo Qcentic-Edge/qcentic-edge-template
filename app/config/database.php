@@ -17,7 +17,7 @@ return [
     |
     */
 
-    'default' => env('DB_CONNECTION', 'sqlite'),
+    'default' => env('DB_CONNECTION', 'libsql'),
 
     /*
     |--------------------------------------------------------------------------
@@ -25,12 +25,25 @@ return [
     |--------------------------------------------------------------------------
     |
     | Below are all of the database connections defined for your application.
-    | An example configuration is provided for each database system which
-    | is supported by Laravel. You're free to add / remove connections.
+    | An example configuration is provided for each database system which is
+    | supported by Laravel. You're free to add / remove connections.
     |
     */
 
     'connections' => [
+
+        'libsql' => [
+            'driver' => 'libsql',
+            // Remote libSQL/Turso URL, e.g. http://db:8080 (local sqld) or
+            // libsql://[id].lite.bunnydb.net (Bunny Database). Empty = local file.
+            'url' => env('DB_URL'),
+            // Auth token for the remote URL (Bunny injects it as
+            // BUNNY_DATABASE_AUTH_TOKEN; DB_AUTH_TOKEN takes precedence).
+            'password' => env('DB_AUTH_TOKEN', env('BUNNY_DATABASE_AUTH_TOKEN')),
+            // Local file path; keep null for remote-only connections.
+            'database' => env('DB_DATABASE'),
+            'prefix' => '',
+        ],
 
         'sqlite' => [
             'driver' => 'sqlite',

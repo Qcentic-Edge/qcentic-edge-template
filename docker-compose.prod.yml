@@ -5,11 +5,11 @@ x-app: &app
   env_file:
     - .env.docker.prod
   environment:
-    DB_HOST: ${DB_HOST:-db}
-    DB_PORT: ${DB_PORT:-5432}
-    DB_DATABASE: ${DB_DATABASE:-filament}
-    DB_USERNAME: ${DB_USERNAME:-filament}
-    DB_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env.docker.prod}
+    DB_CONNECTION: libsql
+    # Explicit DB_URL wins; else the vars Bunny Database injects into Magic
+    # Containers; else the bundled sqld service (used with --profile bundled-db).
+    DB_URL: ${DB_URL:-${BUNNY_DATABASE_URL:-http://db:8080}}
+    DB_AUTH_TOKEN: ${DB_AUTH_TOKEN:-${BUNNY_DATABASE_AUTH_TOKEN:-}}
   read_only: true
   tmpfs:
     - /tmp:uid=1000,gid=1000
@@ -22,33 +22,31 @@ x-app: &app
     - no-new-privileges:true
 
 services:
-  # Optional local Postgres. Enable with: --profile bundled-db
-  # Without the profile the app expects an external (managed) database.
+  # Optional local libSQL server (sqld) for full-stack testing of the prod
+  # image on your own machine. Enable with: --profile bundled-db
+  # Production on bunny.net uses Bunny Database instead (BUNNY_DATABASE_URL +
+  # BUNNY_DATABASE_AUTH_TOKEN are injected when the DB is linked to the app).
   db:
-    image: postgres:17-alpine
+    image: ghcr.io/tursodatabase/libsql-server:latest
     profiles:
       - bundled-db
     restart: unless-stopped
+    command: ["/bin/sqld"]
     environment:
-      POSTGRES_DB: ${DB_DATABASE:-filament}
-      POSTGRES_USER: ${DB_USERNAME:-filament}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env.docker.prod}
+      SQLD_DB_PATH: /var/lib/sqld/db
     volumes:
-      - db_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-filament} -d ${DB_DATABASE:-filament}"]
-      interval: 5s
-      timeout: 3s
-      retries: 12
+      - db_data:/var/lib/sqld
 
   migrate:
     <<: *app
-    # Waits for the database (bundled or external) to accept TCP connections,
-    # then runs the migrations once.
+    # Waits for the remote database (managed or bundled) to accept
+    # connections, then runs the migrations once.
     command:
       - sh
       - -c
-      - until nc -z "$$DB_HOST" "$$DB_PORT"; do sleep 1; done; php artisan migrate --force
+      - |
+        until php -r '$$u=@parse_url(getenv("DB_URL")); if(!$$u){exit(1);} $$tls=in_array($$u["scheme"]??"",["libsql","https","wss"]); $$p=$$u["port"]??($$tls?443:80); $$a=(($$tls)?"ssl://":"").$$u["host"].":".$$p; $$s=@stream_socket_client($$a,$$e,$$m,3); if($$s){fclose($$s);exit(0);} exit(1);'; do sleep 2; done
+        php artisan migrate --force
     restart: "no"
     healthcheck:
       disable: true

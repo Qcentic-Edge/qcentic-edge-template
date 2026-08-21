@@ -1,9 +1,14 @@
 # syntax=docker/dockerfile:1
 
 # ── app: PHP extensions + composer deps, optimized ─────────────────────
-FROM dunglas/frankenphp:1.12.7-php8.4-alpine AS app
+# Debian (glibc) base, not alpine: turso/libsql ships only *-linux-gnu
+# native libraries (loaded via ext-ffi), which cannot run on musl.
+FROM dunglas/frankenphp:1.12.7-php8.4-bookworm AS app
 
-RUN install-php-extensions pdo_pgsql intl bcmath pcntl posix zip opcache
+RUN install-php-extensions ffi intl bcmath pcntl posix zip opcache
+
+# ffi.enable=1: the libSQL client (turso/libsql) loads its native library via FFI.
+RUN printf '%s\n' 'ffi.enable=1' > /usr/local/etc/php/conf.d/99-ffi.ini
 
 ENV COMPOSER_ALLOW_SUPERUSER=1
 WORKDIR /app
@@ -57,7 +62,7 @@ ENV SERVER_NAME=:8080 \
 WORKDIR /app
 
 # Non-root with no capabilities (port 8080 is unprivileged, so none needed).
-RUN adduser -D -u 1000 appuser \
+RUN useradd --uid 1000 --system appuser \
     && setcap -r /usr/local/bin/frankenphp \
     && chown -R appuser:appuser /config/caddy /data/caddy
 
@@ -78,4 +83,4 @@ USER appuser
 EXPOSE 8080
 
 HEALTHCHECK --interval=10s --timeout=3s --start-period=20s --retries=3 \
-    CMD wget -qO /dev/null http://127.0.0.1:8080/up || exit 1
+    CMD curl -fsS -o /dev/null http://127.0.0.1:8080/up || exit 1

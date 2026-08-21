@@ -32,11 +32,14 @@ Keep entries to one or two lines. Add a term the first time it causes confusion.
 - **Sticky sessions** — CDN-endpoint option pinning a client to one pod; not needed when sessions live in Bunny DB.
 - **Bunny Storage** — object storage with S3-compatible API (public preview); where user uploads go in the stateless doctrine.
 - **turso/libsql-laravel** — official Turso Laravel adapter (extends SQLiteConnection, FFI-based client). Requires illuminate ^11|^12 → must be forked for Laravel 13.
+- **mehdiamenein/libsql-laravel** — our public fork (of Ben52's Laravel 13 fork): constraint `^13.0`, cursor()/select() signature fixes, PDO getAttribute for the database queue driver, URL-based config, CharBox empty-string patch. Installed via composer VCS repo.
+- **sqld / libsql-server** — self-hosted libSQL server image `ghcr.io/tursodatabase/libsql-server`; speaks the same Hrana protocol as Bunny Database. Dev compose runs it; `command: ["/bin/sqld"]` + env `SQLD_DB_PATH` (its entrypoint wires `--db-path`/listen addr itself).
 
 ## Project decisions
 
 - Target: Filament **5.x** only.
 - Plugins: **free only**. Paid plugins get a note marked `paid — skip`, plus a free alternative when one exists.
 - Deployment target: **bunny.net Magic Containers (stateless) + Bunny Database (libSQL)**; private Docker Hub registry; images built for linux/amd64.
+- Database layer: **libSQL everywhere** (decided 2026-08-21): dev = local sqld container, prod = remote libSQL (Bunny DB / Turso / self-hosted sqld). Postgres dropped. Docker base = FrankenPHP **Debian** (turso/libsql native lib is glibc-only; FFI installed via install-php-extensions, `ffi.enable=1`).
 - Repo role: this repo is the **living template** — products are cloned from it, template evolves in parallel. All deployment wiring stays env-parameterized.
 - GitHub account for template/workflows: `mehdiamenein` (confirmed 2026-08-21; public repo `my-base-filament-template`, Apache-2.0).
