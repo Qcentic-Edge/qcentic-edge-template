@@ -69,3 +69,17 @@ Key rules from those notes: scaffold from filamentphp/plugin-skeleton + `php ./c
 If a gap is not covered by the notes (e.g. advanced/assets, styling/icons details), fetch that specific 5.x doc page per the filament-research flow and save it.
 
 If the plugin is meant to be a standalone product of this repo (not throwaway), treat it as real work: ADR in `knowledgebase/decisions/` for the architecture choice, tests, and consider submitting to the registry via https://filamentphp.com/author (GitHub OAuth).
+
+## Agent skills
+
+### Issue tracker
+
+Issues are tracked as local markdown files under `.scratch/<feature-slug>/` in this repo. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The five canonical triage roles are used as-is: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: glossary and project decisions in `knowledgebase/CONTEXT.md`, ADRs in `knowledgebase/decisions/`. See `docs/agents/domain.md`.
