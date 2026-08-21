@@ -18,6 +18,13 @@ Keep entries to one or two lines. Add a term the first time it causes confusion.
 - **Custom page** — panel page not bound to a model.
 - **Cluster** — groups navigation items into a section.
 - **Plugin** — package extending Filament. Free = open source, paid = locked repo behind purchase.
+- **Panel plugin** — plugin that adds things to panels (widgets/resources/pages) or ships a whole panel; uses the Plugin object.
+- **Standalone plugin** — plugin usable outside any panel (schema components, table columns); no Plugin object, config in its service provider.
+- **Plugin object** — `Filament\Contracts\Plugin` class (`getId`/`register`/`boot`) configuring a plugin per-panel; optional but conventional for panel plugins.
+- **plugin-skeleton** — filamentphp/plugin-skeleton repo, official scaffold; `php ./configure.php` stubs the package.
+- **ResourceConfiguration / PageConfiguration** — 5.x classes enabling one resource/page class to be registered multiple times with different config (`Resource::make('key')`).
+- **Plugin registry** — filamentphp.com/plugins. URL params that work: `?price=free`, `?q=`, `?sort=popular`, `?score=100`; version/tag filters are browser-only (URL-ignored). Plugin page = `/plugins/<slug>` (author-name + plugin-name slug).
+- **Plumb / package health score** — plumbphp.dev automated Composer checks powering the registry's N/100 health score (Security/Maintenance/Ecosystem sub-scores).
 - **Guard** — Laravel auth guard. Each panel can use its own via `authGuard()`; separate guards = separate sessions/user pools per panel.
 - **FilamentUser contract** — `canAccessPanel(Panel $panel): bool` on the user model; gates who may enter which panel in production (locally all users pass).
 

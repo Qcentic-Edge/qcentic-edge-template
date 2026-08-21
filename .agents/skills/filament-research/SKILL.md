@@ -41,8 +41,14 @@ Read `knowledgebase/INDEX.md`. Search for the topic. If a note exists, read it, 
 - Fallback search: tavily `site:filamentphp.com/plugins <name>`.
 - From the plugin page extract: name, author, price (Free vs amount), Filament versions supported (must include 5.x), package health score, repo URL, install command, tags, description.
 - If price is not Free: note it, mark `paid — skip`, find free alternative.
+- Full canonical recipe with all verified URL params and acceptance rules: `knowledgebase/research/plugins/find-plugins-guide.md`.
 
-**Anything else** (package behavior, GitHub issues, community examples): tavily search, prefer the plugin's GitHub repo README.
+**Plugin development ("how do I build a plugin?").** Read the local notes first — the full official docs are already saved, no fetching needed:
+- `knowledgebase/research/docs/plugins-development-synthesis.md` — direct answer (panel vs standalone, scaffolding, PackageServiceProvider + Plugin object, asset rules, shipping).
+- Verbatim pages: `plugins-getting-started.md`, `plugins-panel-plugins.md`, `plugins-building-a-panel-plugin.md`, `plugins-building-a-standalone-plugin.md`, `plugins-configurable-resources-and-pages.md`.
+Only fetch a 5.x doc page when the notes have a gap (e.g. advanced/assets, styling/icons) — then save it like any doc page.
+
+**Anything else** (package behavior, GitHub issues, community examples): tavily search, prefer the plugin's GitHub repo README. For open-ended questions beyond the docs, delegate to a background agent per Matt Pocock's `research` skill pattern and save its cited note here.
 
 ### 3. Save the note
 
