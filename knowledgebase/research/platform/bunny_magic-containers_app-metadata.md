@@ -1,0 +1,32 @@
+# magic-containers/app-metadata
+
+Source: https://bunny.net/docs/magic-containers/app-metadata — fetched 2026-08-21
+
+> ## Documentation Index
+> Fetch the complete documentation index at: https://bunny.net/docs/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# App Metadata
+
+> bunny.net's platform automatically injects specific metadata into the deployed containers. This metadata is provided in the form of environment variables, which are crucial for applications running on these containers. This critical information aids in managing and operating applications more dynamically and responsively within cloud environments.
+
+# What is app metadata?
+
+The Magic Containers feature automatically injects metadata into each container. The following Environment Variables are configured:
+
+* `BUNNYNET_MC_APPID`: Unique identifier for the application.
+* `BUNNYNET_MC_PODID`: Identifier for the pod within which the container runs.
+* `BUNNYNET_MC_REGION`: Geographic location data where the container is deployed.
+* `BUNNYNET_MC_PUBLIC_ENDPOINTS`: Publicly accessible endpoints of the pod, which are essential for inter-service communication.
+* `BUNNYNET_MC_PODIP`: Internal IP address of the host, useful for intra-network communications within the cloud environment.
+* `BUNNYNET_MC_HOSTIP`: IP address of the host machine on which the container is running.
+* `BUNNYNET_MC_ZONE`: A more specific designation within the region. These environment variables are injected into the containers, providing dynamic data that can be accessed programmatically within the application. The simplicity of access to this data is facilitated through environment variables, which can be easily queried by the application running within the container.
+
+# Benefits of app metadata
+
+App metadata carries several practical benefits, making it an indispensable feature for modern cloud-native applications:
+
+* **Enhanced Logging**: Metadata allows for more detailed logs. For instance, including the application ID or pod ID in log entries can help in troubleshooting and understanding application behavior across different environments.
+* **Dynamic Configuration**: Metadata like region or public endpoints can be used by the application to adjust its behavior or configuration dynamically. This is particularly useful in geo-distributed deployments where applications need to serve region-specific content or adhere to region-specific regulations.
+* **Service Discovery**: For microservices architectures, public endpoints metadata allows services to register themselves or discover other services dynamically, facilitating smoother inter-service communication and scalability.
+* **Operational Efficiency**: Knowing the internal IP and host details can help in network planning and management, ensuring that resources are optimally utilized and performance bottlenecks are minimized.

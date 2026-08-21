@@ -1,0 +1,87 @@
+name: filament-prod
+
+x-app: &app
+  image: ${IMAGE_NAME:?set IMAGE_NAME in .env.docker.prod, e.g. <registry-user>/my-base-filament-template:latest}
+  env_file:
+    - .env.docker.prod
+  environment:
+    DB_HOST: ${DB_HOST:-db}
+    DB_PORT: ${DB_PORT:-5432}
+    DB_DATABASE: ${DB_DATABASE:-filament}
+    DB_USERNAME: ${DB_USERNAME:-filament}
+    DB_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env.docker.prod}
+  read_only: true
+  tmpfs:
+    - /tmp:uid=1000,gid=1000
+    - /config:uid=1000,gid=1000
+    - /data:uid=1000,gid=1000
+    - /app/bootstrap/cache:uid=1000,gid=1000
+  volumes:
+    - app_storage:/app/storage
+  security_opt:
+    - no-new-privileges:true
+
+services:
+  # Optional local Postgres. Enable with: --profile bundled-db
+  # Without the profile the app expects an external (managed) database.
+  db:
+    image: postgres:17-alpine
+    profiles:
+      - bundled-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-filament}
+      POSTGRES_USER: ${DB_USERNAME:-filament}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env.docker.prod}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-filament} -d ${DB_DATABASE:-filament}"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  migrate:
+    <<: *app
+    # Waits for the database (bundled or external) to accept TCP connections,
+    # then runs the migrations once.
+    command:
+      - sh
+      - -c
+      - until nc -z "$$DB_HOST" "$$DB_PORT"; do sleep 1; done; php artisan migrate --force
+    restart: "no"
+    healthcheck:
+      disable: true
+
+  app:
+    <<: *app
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-8080}:8080"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  queue:
+    <<: *app
+    restart: unless-stopped
+    command: ["php", "artisan", "queue:work", "--tries=3", "--timeout=60"]
+    healthcheck:
+      disable: true
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  scheduler:
+    <<: *app
+    restart: unless-stopped
+    command: ["php", "artisan", "schedule:work"]
+    healthcheck:
+      disable: true
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+volumes:
+  db_data:
+  app_storage:

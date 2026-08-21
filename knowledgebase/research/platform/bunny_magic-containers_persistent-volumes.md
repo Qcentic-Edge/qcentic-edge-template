@@ -1,0 +1,211 @@
+# magic-containers/persistent-volumes
+
+Source: https://bunny.net/docs/magic-containers/persistent-volumes — fetched 2026-08-21
+
+> ## Documentation Index
+> Fetch the complete documentation index at: https://bunny.net/docs/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Persistent Volumes
+
+> Attach persistent storage to your Magic Containers applications.
+
+Persistent Volumes provide durable storage that persists across restarts and redeployments. Attach a volume directly to your Magic Containers application to keep your data safe, secure, and accessible as your application scales globally.
+
+* **Auto-scaling** - Volumes automatically scale up with regional pod deployments and detach when scaling down
+* **Encrypted by default** - All persistent data is AES encrypted
+* **Flexible storage** - Each volume can expand up to 100GB (standard accounts) or 30GB (trial accounts), but can only be extended, never reduced
+* **Dedicated volumes** - Each pod generates its own unique blank volume with no data duplication
+* **Shared access** - Containers within the same pod can share the same volume
+* **Automatic reattachment** - Detached volumes reattach automatically if your app scales up regionally
+* **Unique mount paths** - Mount paths are unique to the application
+
+## Regional behavior
+
+Volumes are tied to specific regions. This means:
+
+* If your app runs in multiple regions (e.g., EU, US, APAC), each region gets its own independent volumes
+* A pod in one region cannot access volumes from another region
+* When scaling to a new region, new volumes are automatically provisioned in that region
+* Each pod within the same region gets its own dedicated blank volume (no data duplication between pods)
+
+## Scaling behavior
+
+When your application scales up, new volume instances are created and attached to pods on available nodes. When it scales down, those volume instances are detached but not deleted automatically.
+
+Detached volumes remain in your account and continue to reserve storage capacity. It is your responsibility to delete them from the **Volumes** tab if they are no longer needed.
+
+When your application scales back up, the platform will attempt to reuse existing detached volume instances. However, since workloads are scheduled dynamically, pods may be placed on nodes that do not host your previous volume instances, which means reattachment cannot be guaranteed and new empty volumes may be provisioned instead.
+
+<Warning>
+  Keep this behavior in mind when scaling applications with persistent volumes. Scaling down leaves detached volumes that persist until deleted, and a subsequent scale-up may not restore access to the same data if your pods are placed on different nodes.
+</Warning>
+
+## Node unavailability
+
+Persistent volumes are bound to specific nodes within a region. If a node becomes temporarily unavailable (for example, due to maintenance or infrastructure changes), the platform preserves your volume and pod association so data remains intact when the node returns:
+
+* **Volume retention** - The persistent volume stays safely on its node, preserving all data during the outage
+* **Pod association** - The pod remains associated with its volume, ensuring it resumes exactly where it left off once the node recovers
+* **Automatic resumption** - When the node returns to service, your pod restarts automatically with the existing volume and all data intact
+
+### Recovery options
+
+If you need your pod running sooner, you have two paths forward:
+
+<CardGroup cols={2}>
+  <Card title="Wait for node recovery" icon="clock">
+    The recommended option when your data matters. Once the node is back, your pod resumes automatically with the existing volume and all data intact — no action required.
+  </Card>
+
+  <Card title="Redeploy with a fresh volume" icon="refresh">
+    If the data is not needed, delete the detached volume from the **Volumes** tab. The pod will be scheduled to a healthy node in the same region and start fresh with a new empty volume.
+  </Card>
+</CardGroup>
+
+### Hardware failure
+
+In the rare event that a node requires a disk replacement, the affected volume is recreated as a new empty volume once the node is restored.
+
+<Note>
+  Persistent volumes do not currently support automatic backups or replication. For critical data, implement a backup strategy within your application (for example, periodic exports to object storage) so you can restore quickly if needed.
+</Note>
+
+## Quickstart
+
+<Steps>
+  <Step title="Add volume details">
+    During container setup, add your volume details including the mount path and
+    initial size.
+  </Step>
+
+  <Step title="Save settings">
+    Select **Update Container** and save your settings.
+  </Step>
+</Steps>
+
+Your application now has scalable persistent volumes attached to each container. Manage your volumes from the dedicated **Volumes** tab.
+
+## Limits
+
+| Feature                 | Standard account | Trial account |
+| ----------------------- | ---------------- | ------------- |
+| Volumes per application | 2                | 1             |
+| Maximum volume size     | 100GB            | 30GB          |
+| Read throughput         | 10 MB/s          | 10 MB/s       |
+| Write throughput        | 10 MB/s          | 10 MB/s       |
+
+<Note>
+  Throughput limits are defined in the pod cgroup and apply to each volume individually. If a pod has two volumes attached, each volume receives its own 10 MB/s read and 10 MB/s write limits.
+</Note>
+
+## File permissions
+
+When multiple containers in a pod share a volume, their ability to read, modify, or delete each other's files depends on which user each container runs as.
+
+**Which user does a container run as?** By default, if no `USER` instruction is present in your Dockerfile, the container runs as root (`uid=0`). If a `USER` instruction is specified, the container runs as that user.
+
+```dockerfile theme={null}
+# Runs as root (no USER specified)
+FROM ubuntu:22.04
+CMD ["myapp"]
+
+# Runs as a non-root user
+FROM ubuntu:22.04
+USER 1000
+CMD ["myapp"]
+```
+
+<Note>
+  Volumes are only shared between containers within the same pod. Containers from different pods cannot access each other's volumes.
+</Note>
+
+### Root creates files, non-root accesses them
+
+| Operation | Result |
+| --------- | ------ |
+| Read      | ✅      |
+| Modify    | ❌      |
+| Delete    | ❌      |
+
+Files created by a root process can be read but not modified or deleted by non-root containers.
+
+### Non-root creates files, root accesses them
+
+| Operation | Result |
+| --------- | ------ |
+| Read      | ✅      |
+| Modify    | ✅      |
+| Delete    | ✅      |
+
+Root always has full access regardless of file permissions.
+
+### Both containers run as the same non-root user
+
+| Operation | Result |
+| --------- | ------ |
+| Read      | ✅      |
+| Modify    | ✅      |
+| Delete    | ✅      |
+
+Full access as both containers are the file owner.
+
+### Each container runs as a different non-root user
+
+| Operation | Result |
+| --------- | ------ |
+| Read      | ✅      |
+| Modify    | ❌      |
+| Delete    | ❌      |
+
+The accessing container is not the file owner. It can read files but cannot modify or delete them.
+
+### Summary
+
+| Scenario                        | Read | Modify | Delete |
+| ------------------------------- | ---- | ------ | ------ |
+| Root creates, non-root accesses | ✅    | ❌      | ❌      |
+| Non-root creates, root accesses | ✅    | ✅      | ✅      |
+| Same non-root user              | ✅    | ✅      | ✅      |
+| Different non-root users        | ✅    | ❌      | ❌      |
+
+### A note on deletion
+
+On Linux, whether a process can delete a file is determined by write permission on the **directory** containing the file, not by the file's own permissions. Because all pod containers share write access to the volume directory, a non-root container would ordinarily be able to delete any file inside it regardless of who created it. To prevent this, the volume directory is configured with the **sticky bit** — the same mechanism used by shared system directories such as `/tmp`. With the sticky bit set, only the file's owner or root can delete or rename a file, even with directory write access. The `Delete ❌` entries in the tables above rely on this.
+
+## FAQ
+
+<AccordionGroup>
+  <Accordion title="Will I still be charged while my volume is detached from the container?">
+    Yes, you are charged while the volume exists even if it's detached, as it
+    still reserves storage capacity.
+  </Accordion>
+
+  <Accordion title="How do volumes scale down?">
+    The default behavior means the volume will detach when scaling down.
+  </Accordion>
+
+  <Accordion title="Can I reduce the size of my volume?">
+    No, you cannot reduce the size of your volume. You can only extend it to
+    make it larger.
+  </Accordion>
+
+  <Accordion title="Why is my pod not running when a node is unavailable?">
+    Persistent volumes are bound to specific nodes. If a node becomes unavailable
+    (due to maintenance or other issues), your pod cannot be rescheduled to
+    another node because it remains bound to the volume on the unavailable node.
+    You can either wait for the node to recover, or delete the volume to allow
+    the pod to reschedule with a new volume.
+  </Accordion>
+
+  <Accordion title="Are persistent volumes backed up?">
+    No, persistent volumes do not currently support automatic backups or
+    replication. If the underlying hardware fails and the disk is replaced,
+    all data on that volume will be lost. For critical data, you should
+    implement your own backup strategy within your application.
+  </Accordion>
+</AccordionGroup>
+
+## Pricing
+
+Pricing is \$0.10 per GB/month, charged based on the allocated (provisioned) volume size.

@@ -1,0 +1,59 @@
+# magic-containers/image-registries
+
+Source: https://bunny.net/docs/magic-containers/image-registries — fetched 2026-08-21
+
+> ## Documentation Index
+> Fetch the complete documentation index at: https://bunny.net/docs/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Image Registries
+
+> Connect public or private container registries to Magic Containers.
+
+Magic Containers supports both public and private container registries from Docker Hub and GitHub.
+
+<Info>
+  Magic Containers only supports images built for the **linux/amd64** architecture. When building your container image, ensure you target this platform using `--platform linux/amd64`.
+</Info>
+
+## Public registries
+
+Public Docker Hub and GitHub container registries are already connected to Magic Containers. You can deploy any public image without additional configuration.
+
+## Private registries
+
+To deploy images from private repositories, connect your registry by providing authentication credentials.
+
+<Steps>
+  <Step title="Navigate to Image Registries">
+    In the bunny.net dashboard, go to **Magic Containers** and select **Image Registries**.
+  </Step>
+
+  <Step title="Add Image Registry">
+    Click **Add Image Registry**.
+
+    <Frame>
+      <img src="https://mintcdn.com/bunnynet-cb9733c2/L57MhyfuZyBVCcmn/images/docs/c1a77dac24aa59142f707b2c46c08b708ff6004183fb465e55c5168b4ea59504-image.png?fit=max&auto=format&n=L57MhyfuZyBVCcmn&q=85&s=791428538db0f03609302d71bb9192c7" alt="" width="2056" height="1280" data-path="images/docs/c1a77dac24aa59142f707b2c46c08b708ff6004183fb465e55c5168b4ea59504-image.png" />
+    </Frame>
+  </Step>
+
+  <Step title="Configure registry credentials">
+    Fill in the following fields:
+
+    <Frame>
+      <img src="https://mintcdn.com/bunnynet-cb9733c2/L57MhyfuZyBVCcmn/images/docs/af3182e32adfc622633b1ed4ab832dd0728f446f0bde5a0c0a20eabc0fd7ed81-image.png?fit=max&auto=format&n=L57MhyfuZyBVCcmn&q=85&s=db0ef24a265ff6acc2e418d0d10b20df" alt="" width="1458" height="1370" data-path="images/docs/af3182e32adfc622633b1ed4ab832dd0728f446f0bde5a0c0a20eabc0fd7ed81-image.png" />
+    </Frame>
+
+    * **Registry** - Select Docker or GitHub
+    * **Username** - Your username or organization name
+    * **Personal access token** - Your access token with read-only permissions
+  </Step>
+
+  <Step title="Save">
+    Click **Add Image Registry**.
+  </Step>
+</Steps>
+
+<Info>
+  To create a personal access token, see the official [GitHub](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry#authenticating-with-a-personal-access-token-classic) or [Docker](https://docs.docker.com/security/for-developers/access-tokens/#create-an-access-token) documentation.
+</Info>

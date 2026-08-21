@@ -1,0 +1,81 @@
+name: filament-dev
+
+x-app: &app
+  build:
+    context: ./app
+    target: dev
+  image: ${DEV_IMAGE_NAME:-filament-app:dev}
+  env_file:
+    - .env.docker.dev
+  environment:
+    DB_HOST: db
+    DB_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env.docker.dev}
+  volumes:
+    - ./app:/app
+    - /app/vendor
+    - /app/node_modules
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-filament}
+      POSTGRES_USER: ${DB_USERNAME:-filament}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env.docker.dev}
+    ports:
+      - "${DB_HOST_PORT:-5432}:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-filament} -d ${DB_DATABASE:-filament}"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  migrate:
+    <<: *app
+    command: ["php", "artisan", "migrate", "--force"]
+    restart: "no"
+    healthcheck:
+      disable: true
+    depends_on:
+      db:
+        condition: service_healthy
+
+  app:
+    <<: *app
+    restart: unless-stopped
+    command: ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8080"]
+    ports:
+      - "${HTTP_PORT:-8090}:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO /dev/null http://127.0.0.1:8080/up || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  vite:
+    image: node:22-alpine
+    restart: unless-stopped
+    working_dir: /app
+    environment:
+      # Makes laravel-vite-plugin bind 0.0.0.0 and write the hot file
+      # as http://localhost:5173 (same behavior as Laravel Sail).
+      LARAVEL_SAIL: 1
+    command: sh -c "npm install --no-audit --no-fund && npm run dev"
+    ports:
+      - "${VITE_PORT:-5173}:5173"
+    volumes:
+      - ./app:/app
+      - npm_cache:/root/.npm
+
+volumes:
+  db_data:
+  npm_cache:

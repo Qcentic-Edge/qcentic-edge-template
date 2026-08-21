@@ -1,0 +1,25 @@
+# magic-containers/sandbox
+
+Source: https://bunny.net/docs/magic-containers/sandbox — fetched 2026-08-21
+
+> ## Documentation Index
+> Fetch the complete documentation index at: https://bunny.net/docs/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Sandboxing
+
+> Learn how Magic Containers uses gVisor for application kernel isolation and enhanced container security.
+
+Traditional containers use Linux namespaces to establish resource limits, but a malicious deployment could potentially breach container boundaries. Magic Containers addresses this by using [gVisor](https://gvisor.dev/) as the container runtime.
+
+gVisor intercepts application system calls and handles them in a user-space kernel, creating strong isolation between the application and the host kernel without the overhead of full virtualization.
+
+## Syscall Compatibility
+
+gVisor implements a subset of Linux system calls. While most common applications work without modification, some workloads that rely on specialized or less common syscalls may experience compatibility issues. Applications using standard networking, file I/O, and process management typically work without issues.
+
+For a complete list of supported syscalls, see the [gVisor compatibility documentation](https://gvisor.dev/docs/user_guide/compatibility/linux/amd64/).
+
+## Network Isolation
+
+Magic Containers uses Virtual Extensible LAN (VXLAN) to create virtual networks over the physical infrastructure. This provides scalable connectivity between containers across different hosts while maintaining isolation and segmentation.

@@ -1,0 +1,159 @@
+# magic-containers/limits
+
+Source: https://bunny.net/docs/magic-containers/limits — fetched 2026-08-21
+
+> ## Documentation Index
+> Fetch the complete documentation index at: https://bunny.net/docs/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Limits
+
+> To make sure everyone’s applications run reliably and smoothly, we have a few resource and usage limits in place. Below, you’ll find details on these limits, covering CPU, memory, storage, and more so that you can plan your deployments with confidence.
+
+# Dynamic runtime limits
+
+The following resource limits apply to each instance (pod) of a Magic Containers application running on the dynamic runtime:
+
+* **CPU**: 8 CPUs
+* **Memory**: 32 GiB
+* **Network ingress**: 1 Gbps
+* **Network egress**: 1 Gbps
+* **Outbound connections**: 500
+* **Ephemeral storage**: 10 GB
+
+<Note>
+  On [trial accounts](#trial-accounts), each instance runs with 1 CPU and 4 GiB of memory instead. The remaining runtime limits above are the same for trial and standard accounts.
+</Note>
+
+<Info>
+  The default bandwidth limit is 1 Gbps. If your application requires higher bandwidth, you can request an increase by submitting a support ticket.
+</Info>
+
+# Persistent volume limits
+
+The following I/O limits are defined in the pod cgroup and apply to each [persistent volume](/docs/magic-containers/persistent-volumes) individually. If a pod has multiple volumes attached, each volume receives these limits:
+
+* **Read throughput**: 10 MB/s
+* **Write throughput**: 10 MB/s
+
+<Info>
+  Once an application consumes 10 GB of ephemeral storage, the container/pod will be evicted and automatically restarted. Any data stored in ephemeral storage is lost during this process.
+</Info>
+
+Magic Containers automatically attempts to restart a container if it detects a failure.
+
+## CPU core detection
+
+<Note>
+  This section assumes a standard account, where each instance gets 8 CPUs. On a [trial account](#trial-accounts) each instance gets 1 CPU, so use 1 wherever the examples below use 8.
+</Note>
+
+While Magic Containers allocates 8 CPUs worth of CPU time to each pod, applications running inside the container may still detect the total number of CPU cores available on the host machine (which can be 32 or more cores). This can lead to suboptimal performance because many applications automatically spawn threads based on the detected CPU count, resulting in excessive thread contention when only 8 CPUs worth of processing time is actually available.
+
+### Symptoms of incorrect CPU detection
+
+* Application performance is significantly slower than expected
+* CPU utilization appears low despite the application being busy
+* Multi-threaded workloads (encoding, compilation, etc.) perform worse than on less powerful machines
+
+### Optimizing multi-threaded applications
+
+To achieve optimal performance, configure your applications to use 8 threads or fewer. Below are examples for common use cases.
+
+#### FFmpeg video encoding
+
+FFmpeg and its video encoders may auto-detect the host's CPU count and spawn too many threads. Here's how to configure different encoders for optimal performance on Magic Containers:
+
+**x265 (HEVC) encoding**
+
+Create a wrapper script `/usr/local/bin/ffmpeg-x265-optimized`:
+
+```bash theme={null}
+#!/bin/sh
+X265_THREADS="${X265_THREADS:-pools=8:frame-threads=3}"
+exec ffmpeg "$@" -x265-params "${X265_THREADS}:log-level=error"
+```
+
+Or set the environment variable in your Dockerfile:
+
+```dockerfile theme={null}
+ENV X265_THREADS="pools=8:frame-threads=3"
+```
+
+Then use it in your ffmpeg command:
+
+```bash theme={null}
+ffmpeg -i input.mp4 -c:v libx265 -x265-params "pools=8:frame-threads=3" output.mp4
+```
+
+**x264 (H.264) encoding**
+
+```bash theme={null}
+ffmpeg -i input.mp4 -c:v libx264 -threads 8 output.mp4
+```
+
+**VP9 and AV1 encoding**
+
+```bash theme={null}
+# VP9
+ffmpeg -i input.mp4 -c:v libvpx-vp9 -threads 8 output.webm
+
+# AV1 (libaom)
+ffmpeg -i input.mp4 -c:v libaom-av1 -threads 8 output.mp4
+```
+
+#### General thread configuration
+
+For other applications, look for thread or worker count configuration options and set them to 8 or fewer. Common environment variables and settings include:
+
+* `OMP_NUM_THREADS=8` - OpenMP applications
+* `GOMAXPROCS=8` - Go applications
+* `UV_THREADPOOL_SIZE=8` - Node.js applications
+* `--workers=8` or `-j8` - Various CLI tools
+
+<Tip>
+  When in doubt, explicitly set thread counts to 8 in your application configuration rather than relying on auto-detection. This ensures consistent and optimal performance on Magic Containers.
+</Tip>
+
+The system will attempt to restart the container up to 10 times before giving up.
+
+# Port Limits
+
+Our platform applies default restrictions to inbound and outbound traffic on the following ports: **25**, **465**, **587**, and **2525**. This is to maintain a secure environment and prevent unauthorized mail relay.
+
+<Info>
+  If your application requires any of these ports to be opened, contact our support team for assistance. They will review and enable the necessary configurations to ensure your application functions correctly.
+</Info>
+
+# Account-level limits
+
+## Standard accounts
+
+By default, the following limits apply to each standard (non-trial) account on the Magic Containers platform:
+
+* Number of applications per account: 20.
+* Number of regions per application: No limit (all available regions).
+* Number of instances/pods per region per application: Up to 10.
+* Number of persistent volumes per application: 2.
+* Maximum persistent volume size: 100 GB.
+
+## Trial accounts
+
+If you are on a trial account, the following limits apply instead:
+
+* Number of applications per account: 1.
+* Number of regions per application: 3.
+* Number of instances/pods per region per application: 3.
+* Number of instances/pods per application: 3 across all regions.
+* Number of persistent volumes per application: 1.
+* Maximum persistent volume size: 30 GB.
+* CPU per instance: 1 CPU.
+* Memory per instance: 4 GiB.
+
+Autoscaling is capped accordingly: the maximum number of instances per region cannot be set above 3, and the minimum number of instances multiplied by the number of [base regions](/docs/magic-containers/deploy) cannot exceed 3. For example, an application with three base regions can keep one instance running in each of them.
+
+<Info>
+  A verified payment card is required before a trial account can deploy or manage applications. Verifying your card does not raise the limits above.
+
+  Trial limits are lifted when your account moves to a paid plan. Your existing applications are then updated automatically to the standard CPU and memory limits.
+</Info>
