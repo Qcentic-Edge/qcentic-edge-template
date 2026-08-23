@@ -92,18 +92,13 @@ docker-compose.dev.yml     dev stack (local sqld)
 docker-compose.prod.yml    prod stack (remote libSQL or bundled sqld)
 docker-compose.build.yml   image build (local, no push by default)
 .env.docker.*.example      copy to .env.docker.* and fill in
-knowledgebase/             Filament 5.x research notes (docs cache, plugin registry)
 ```
 
 ## Notes
 
 - **libSQL driver**: `turso/libsql-laravel` is a technical preview and does not support Laravel 13 upstream yet. This template installs the maintained fork `mehdiamenein/libsql-laravel` via a composer VCS repository. The fork carries Laravel 13 fixes (connection factory signatures, cursor() TypeError, PDO attribute probes used by the database queue driver) plus a patch for a native client crash on empty strings.
 - **Debian base, not alpine**: the `turso/libsql` PHP client loads a glibc native library through FFI; no musl build exists.
-- **Bunny Database caveats** (managed libSQL): 1 GB per DB, up to ~10s replication window, no read-your-writes on replicas. Fine for template-scale apps; see `knowledgebase/research/platform/bunny_database_*.md`.
-
-## Maintenance
-
-- Filament docs research flow lives in `.agents/skills/filament-research/` — notes are cached under `knowledgebase/` with source URL + fetch date, and `https://filamentphp.com/docs/5.x/` is the source of truth.
+- **Bunny Database caveats** (managed libSQL): 1 GB per DB, up to ~10s replication window, no read-your-writes on replicas. Fine for template-scale apps.
 
 ## License
 
