@@ -7,6 +7,7 @@ vendor
 storage/*
 database/*.sqlite
 public/build
+public/hot
 bootstrap/cache/*
 *.log
 .DS_Store
