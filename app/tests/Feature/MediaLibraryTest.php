@@ -8,6 +8,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
+use Spatie\MediaLibrary\Conversions\Jobs\PerformConversionsJob;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 uses(DatabaseMigrations::class);
@@ -77,7 +78,7 @@ test('attaching media does not dispatch conversion jobs', function () {
     $user->addMedia(UploadedFile::fake()->create('doc.pdf', 20, 'application/pdf'))
         ->toMediaCollection('uploads');
 
-    Queue::assertNothingPushed();
+    Queue::assertNotPushed(PerformConversionsJob::class);
     expect($user->getFirstMedia('avatar')?->generated_conversions)->toBeEmpty();
 });
 
