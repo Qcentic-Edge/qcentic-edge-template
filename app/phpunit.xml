@@ -54,5 +54,6 @@
         <env name="AWS_ENDPOINT" value="http://minio:9000" force="true"/>
         <env name="AWS_USE_PATH_STYLE_ENDPOINT" value="true" force="true"/>
         <env name="AWS_URL" value="http://localhost:9000/filament" force="true"/>
+        <env name="ASSET_URL" value="" force="true"/>
     </php>
 </phpunit>
