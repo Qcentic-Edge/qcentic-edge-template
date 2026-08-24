@@ -2,8 +2,6 @@
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
-use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Storage;
 use Laravel\Passport\ClientRepository;
 
 uses(DatabaseMigrations::class);
@@ -13,8 +11,6 @@ test('guest without bearer token cannot get api user', function () {
 });
 
 test('passport personal access token returns that user as json', function () {
-    Storage::fake('public');
-
     app(ClientRepository::class)->createPersonalAccessGrantClient('Test Personal Access Client');
 
     $other = User::factory()->create([
@@ -26,9 +22,6 @@ test('passport personal access token returns that user as json', function () {
         'name' => 'Ada Lovelace',
         'email' => 'ada@example.com',
     ]);
-
-    $user->addMedia(UploadedFile::fake()->image('avatar.jpg'))
-        ->toMediaCollection('avatar');
 
     $token = $user->createToken('proof')->accessToken;
 
