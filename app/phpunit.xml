@@ -44,5 +44,14 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <env name="FILESYSTEM_DISK" value="local" force="true"/>
+        <env name="LIVEWIRE_TEMPORARY_FILE_UPLOAD_DISK" value="local" force="true"/>
+        <env name="AWS_ACCESS_KEY_ID" value="minio" force="true"/>
+        <env name="AWS_SECRET_ACCESS_KEY" value="miniosecret" force="true"/>
+        <env name="AWS_DEFAULT_REGION" value="us-east-1" force="true"/>
+        <env name="AWS_BUCKET" value="filament" force="true"/>
+        <env name="AWS_ENDPOINT" value="http://minio:9000" force="true"/>
+        <env name="AWS_USE_PATH_STYLE_ENDPOINT" value="true" force="true"/>
+        <env name="AWS_URL" value="http://localhost:9000/filament" force="true"/>
     </php>
 </phpunit>

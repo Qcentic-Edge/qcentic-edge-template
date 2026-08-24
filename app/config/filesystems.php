@@ -55,7 +55,9 @@ return [
             'bucket' => env('AWS_BUCKET'),
             'url' => env('AWS_URL'),
             'endpoint' => env('AWS_ENDPOINT'),
-            'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
+            'use_path_style_endpoint' => filter_var(env('AWS_USE_PATH_STYLE_ENDPOINT', false), FILTER_VALIDATE_BOOLEAN),
+            // MinIO/Bunny have no ACLs; skip GetObjectAcl on copies (Laravel's R2 pattern).
+            'retain_visibility' => false,
             'throw' => false,
             'report' => false,
         ],

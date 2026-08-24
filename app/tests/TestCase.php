@@ -26,5 +26,6 @@ abstract class TestCase extends BaseTestCase
         $this->app['config']->set('cache.default', 'array');
         $this->app['config']->set('queue.default', 'sync');
         $this->app['config']->set('mail.default', 'log');
+        $this->app['config']->set('filesystems.default', 'local');
     }
 }

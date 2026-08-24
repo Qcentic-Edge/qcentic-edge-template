@@ -12,7 +12,7 @@ Production-ready [Filament](https://filamentphp.com) 5.x / Laravel 13 template, 
 
 | File | Purpose |
 |---|---|
-| `docker-compose.dev.yml` | Local development: bind-mounted source, Vite HMR on `:5173`, `artisan serve` on `:8090`, local libSQL server (`sqld`) on `:8181`, hot reload for PHP + assets |
+| `docker-compose.dev.yml` | Local development: bind-mounted source, Vite HMR on `:5173`, `artisan serve` on `:8090`, local libSQL server (`sqld`) on `:8181`, MinIO on `:9000` (API) / `:9001` (console), hot reload for PHP + assets |
 | `docker-compose.prod.yml` | Production: runs a published image (read-only, hardened), one-shot migrate, queue worker, scheduler against a remote libSQL database (Bunny Database, Turso, or your own sqld). Optional bundled sqld via `--profile bundled-db` for local full-stack testing |
 | `docker-compose.build.yml` | Builds the production image locally (default `linux/amd64`). Nothing is pushed unless you explicitly run `build --push` with your own registry user |
 
@@ -29,6 +29,8 @@ docker compose -f docker-compose.dev.yml --env-file .env.docker.dev up -d
 - Admin: http://localhost:8090/admin/login
 - Vite HMR: http://localhost:5173
 - libSQL (Hrana over HTTP): `http://localhost:8181`
+- MinIO API: http://localhost:9000
+- MinIO console: http://localhost:9001 (user/password from `.env.docker.dev`)
 
 Create an admin user:
 
@@ -75,9 +77,19 @@ docker compose -f docker-compose.prod.yml --env-file .env.docker.prod --profile 
 
 Leave `DB_URL` empty; compose defaults it to the bundled sqld service.
 
+## Object storage (MinIO)
+
+Dev compose runs community MinIO as the S3-compatible disk (`FILESYSTEM_DISK=s3`). The `minio-init` sidecar creates the `filament` bucket on first boot.
+
+- API: http://localhost:9000
+- Console: http://localhost:9001 (credentials = `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` in `.env.docker.dev`)
+- PHP inside Compose talks to `http://minio:9000` (`AWS_ENDPOINT`). Public `Storage::url()` uses `AWS_URL=http://localhost:9000/filament` so the browser can fetch objects.
+- **Livewire temporary uploads stay on the `local` disk** in this stack (`LIVEWIRE_TEMPORARY_FILE_UPLOAD_DISK=local`). A single app container can share that disk, and it avoids the MinIO hostname split (PHP sees `minio:9000`, the browser sees `localhost:9000`; rewriting a presigned URL host after signing breaks SigV4).
+- **Multi-replica production** (Magic Containers, more than one app replica): set `LIVEWIRE_TEMPORARY_FILE_UPLOAD_DISK=s3` so the upload request and the form submit can land on different pods. Point `AWS_*` at Bunny Storage / AWS / R2 — MinIO is local-dev only.
+
 ## Tests
 
-Tests run hermetically (sqlite `:memory:`, array session/cache) and are immune to the container's env vars — see `app/tests/TestCase.php`.
+Tests run hermetically (sqlite `:memory:`, array session/cache, local filesystem) and are immune to the container's env vars — see `app/tests/TestCase.php`. S3 coverage uses `Storage::fake('s3')` plus phpunit env for disk config; no live MinIO in tests or CI.
 
 ```bash
 docker compose -f docker-compose.dev.yml --env-file .env.docker.dev exec app php artisan test
@@ -92,7 +104,7 @@ From `app/`: `composer test` / `php artisan test` (Pest), `composer lint` (Pint 
 ```
 app/                       Laravel + Filament application
   Dockerfile               multi-stage: app → dev → assets → runtime (Debian + FFI)
-docker-compose.dev.yml     dev stack (local sqld)
+docker-compose.dev.yml     dev stack (local sqld + MinIO)
 docker-compose.prod.yml    prod stack (remote libSQL or bundled sqld)
 docker-compose.build.yml   image build (local, no push by default)
 .env.docker.*.example      copy to .env.docker.* and fill in

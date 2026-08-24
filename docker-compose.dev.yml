@@ -50,7 +50,10 @@ services:
       retries: 5
       start_period: 10s
     depends_on:
-      - migrate
+      migrate:
+        condition: service_started
+      minio-init:
+        condition: service_completed_successfully
 
   vite:
     image: node:22-alpine
@@ -67,6 +70,41 @@ services:
       - ./app:/app
       - npm_cache:/root/.npm
 
+  # Local S3-compatible object storage for FILESYSTEM_DISK=s3.
+  minio:
+    image: minio/minio
+    restart: unless-stopped
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-miniosecret}
+    ports:
+      - "${MINIO_API_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  minio-init:
+    image: minio/mc
+    restart: "no"
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-miniosecret}
+      AWS_BUCKET: ${AWS_BUCKET:-filament}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - mc alias set local http://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD" && mc mb --ignore-existing "local/$$AWS_BUCKET"
+
 volumes:
   db_data:
   npm_cache:
+  minio_data:
