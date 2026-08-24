@@ -77,11 +77,15 @@ Leave `DB_URL` empty; compose defaults it to the bundled sqld service.
 
 ## Tests
 
-Tests run hermetically (sqlite `:memory:`, array session/cache) and are immune to the container's env vars — see `app/tests/TestCase.php`:
+Tests run hermetically (sqlite `:memory:`, array session/cache) and are immune to the container's env vars — see `app/tests/TestCase.php`.
 
 ```bash
 docker compose -f docker-compose.dev.yml --env-file .env.docker.dev exec app php artisan test
+docker compose -f docker-compose.dev.yml --env-file .env.docker.dev exec app vendor/bin/pint --test
+docker compose -f docker-compose.dev.yml --env-file .env.docker.dev exec app vendor/bin/phpstan analyse
 ```
+
+From `app/`: `composer test` / `php artisan test` (Pest), `composer lint` (Pint `--test`), `composer analyse` (Larastan level 5).
 
 ## Layout
 

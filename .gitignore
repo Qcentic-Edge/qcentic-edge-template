@@ -6,7 +6,3 @@ app/.env
 
 # macOS
 .DS_Store
-
-# Scratch
-/tmp/
-.scratch/
