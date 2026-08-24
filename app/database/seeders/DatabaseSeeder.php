@@ -19,7 +19,10 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        $this->call(RoleSeeder::class);
+        $this->call([
+            RoleSeeder::class,
+            PassportClientSeeder::class,
+        ]);
 
         $user = User::updateOrCreate(
             ['email' => 'test@example.com'],

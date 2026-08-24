@@ -20,6 +20,8 @@ abstract class TestCase extends BaseTestCase
      */
     public function createApplication()
     {
+        $this->loadPassportEnvKeys();
+
         $app = parent::createApplication();
 
         $this->pinTestEnvironment($app, purge: true);
@@ -46,9 +48,28 @@ abstract class TestCase extends BaseTestCase
         $app['config']->set('mail.default', 'log');
         $app['config']->set('filesystems.default', 'local');
         $app['config']->set('permission.cache.store', 'array');
+        $app['config']->set('passport.private_key', $_ENV['PASSPORT_PRIVATE_KEY']);
+        $app['config']->set('passport.public_key', $_ENV['PASSPORT_PUBLIC_KEY']);
 
         if ($purge && $app->bound('db')) {
             $app['db']->purge();
         }
+    }
+
+    /**
+     * Load fixture PEMs into PASSPORT_* before config boots.
+     *
+     * PHPUnit cannot store multiline env values cleanly; compose may also
+     * leak empty PASSPORT_* vars. These fixtures are not production secrets.
+     */
+    protected function loadPassportEnvKeys(): void
+    {
+        $private = file_get_contents(__DIR__.'/Fixtures/oauth/oauth-private.key');
+        $public = file_get_contents(__DIR__.'/Fixtures/oauth/oauth-public.key');
+
+        $_ENV['PASSPORT_PRIVATE_KEY'] = $private;
+        $_SERVER['PASSPORT_PRIVATE_KEY'] = $private;
+        $_ENV['PASSPORT_PUBLIC_KEY'] = $public;
+        $_SERVER['PASSPORT_PUBLIC_KEY'] = $public;
     }
 }
