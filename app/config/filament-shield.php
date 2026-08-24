@@ -1,6 +1,7 @@
 <?php
 
 declare(strict_types=1);
+use App\Filament\Resources\Media\MediaResource;
 use BezhanSalleh\FilamentShield\Resources\Roles\RoleResource;
 use Filament\Pages\Dashboard;
 use Filament\Widgets\AccountWidget;
@@ -192,6 +193,15 @@ return [
                 'create',
                 'update',
                 'delete',
+            ],
+            MediaResource::class => [
+                'viewAny',
+                'view',
+                'create',
+                'update',
+                'updateAny',
+                'delete',
+                'deleteAny',
             ],
         ],
         'exclude' => [
