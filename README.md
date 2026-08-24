@@ -143,7 +143,7 @@ From `app/`: `composer test` / `php artisan test` (Pest), `composer lint` (Pint 
 
 ## Authorization testing
 
-Copy this matrix into `tests/Feature/Security/` whenever you add a Filament resource (or API resource). Shared Pest helpers live in `tests/Support/authz.php`: `actingAsRole('user'|'super_admin')`, `actingAsPassport($user, $scopes)`, `asGuest()`, `assertForbiddenTo()`, `assertCannotTouchOthers($record)`. `seedUser()` / `seedSuperAdmin()` attach Spatie roles once Shield lands; until then they still create users.
+Copy this matrix into `tests/Feature/Security/` whenever you add a Filament resource (or API resource). The named recipe is `tests/Feature/Security/PanelKitAuthzTest.php`: same guest / wrong-role / owner / `super_admin` shape against the panel kit (custom Field `BrandedTextInput`, Chart widget `CountsChart`, Drive plugin page + picker). Shared Pest helpers live in `tests/Support/authz.php`: `actingAsRole('user'|'super_admin')`, `actingAsPassport($user, $scopes)`, `asGuest()`, `assertForbiddenTo()`, `assertCannotTouchOthers($record)`. `seedUser()` / `seedSuperAdmin()` attach Spatie roles.
 
 | Actor | AuthN | AuthZ module | AuthZ entity |
 | --- | --- | --- | --- |
