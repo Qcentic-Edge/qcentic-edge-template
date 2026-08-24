@@ -2,7 +2,9 @@
 
 namespace App\Providers;
 
+use App\Models\User;
 use App\Policies\MediaPolicy;
+use App\Policies\UserPolicy;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
@@ -25,5 +27,6 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Gate::policy(Media::class, MediaPolicy::class);
+        Gate::policy(User::class, UserPolicy::class);
     }
 }
