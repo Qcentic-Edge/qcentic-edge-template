@@ -4,7 +4,7 @@ Production-ready [Filament](https://filamentphp.com) 5.x / Laravel 13 template, 
 
 ## What's inside
 
-- **Filament 5 admin panel** (`/admin`) + app panel, user model with `is_admin` gate
+- **Filament 5 admin panel** (`/admin`) + app panel, Spatie roles (`super_admin` / `user`) + Filament Shield (no `is_admin` flag)
 - **FrankenPHP 1.12 / PHP 8.4** runtime (Debian base — the libSQL client's native library is glibc-only), non-root (`uid 1000`), read-only root filesystem, no capabilities, opcache with `validate_timestamps=0` (immutable-code optimizations)
 - **libSQL database layer** via [turso/libsql-laravel](https://github.com/tursodatabase/libsql-laravel), installed from the Laravel 13-compatible fork [mehdiamenein/libsql-laravel](https://github.com/mehdiamenein/libsql-laravel) (constraint + runtime fixes; FFI-based client). Session/cache/queue all use the `database` driver on libSQL — zero extra services.
 - **Multi-stage Docker build**: dev dependencies and node never reach the production image; frontend assets are compiled once and copied in as `public/build`
@@ -30,11 +30,11 @@ docker compose -f docker-compose.dev.yml --env-file .env.docker.dev up -d
 - Vite HMR: http://localhost:5173
 - libSQL (Hrana over HTTP): `http://localhost:8181`
 
-Create an admin user:
+Create an admin user (roles must already exist — `php artisan db:seed` creates `super_admin` and `user`, and assigns `super_admin` to `test@example.com`):
 
 ```bash
 docker compose -f docker-compose.dev.yml --env-file .env.docker.dev exec app \
-  php artisan tinker --execute="App\Models\User::factory()->create(['name'=>'Admin','email'=>'admin@example.com','password'=>Hash::make('password123'),'is_admin'=>true]);"
+  php artisan tinker --execute="App\Models\User::factory()->create(['name'=>'Admin','email'=>'admin@example.com','password'=>Hash::make('password123')])->assignRole('super_admin');"
 ```
 
 ## Production

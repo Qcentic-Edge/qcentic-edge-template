@@ -19,14 +19,17 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        User::updateOrCreate(
+        $this->call(RoleSeeder::class);
+
+        $user = User::updateOrCreate(
             ['email' => 'test@example.com'],
             [
                 'name' => 'Test User',
                 'email_verified_at' => now(),
                 'password' => Hash::make('password'),
-                'is_admin' => true,
             ],
         );
+
+        $user->syncRoles(['super_admin']);
     }
 }
