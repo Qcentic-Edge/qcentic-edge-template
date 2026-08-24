@@ -84,7 +84,7 @@ services:
     volumes:
       - minio_data:/data
     healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -102,7 +102,14 @@ services:
       AWS_BUCKET: ${AWS_BUCKET:-filament}
     entrypoint: ["/bin/sh", "-c"]
     command:
-      - mc alias set local http://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD" && mc mb --ignore-existing "local/$$AWS_BUCKET"
+      - |
+        i=0
+        until mc alias set local http://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD"; do
+          i=$$((i+1))
+          [ "$$i" -gt 30 ] && exit 1
+          sleep 1
+        done
+        mc mb --ignore-existing "local/$$AWS_BUCKET"
 
 volumes:
   db_data:
