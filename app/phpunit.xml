@@ -10,6 +10,14 @@
         </testsuite>
         <testsuite name="Feature">
             <directory>tests/Feature</directory>
+            <exclude>tests/Feature/Api</exclude>
+            <exclude>tests/Feature/Security</exclude>
+        </testsuite>
+        <testsuite name="Feature/Api">
+            <directory>tests/Feature/Api</directory>
+        </testsuite>
+        <testsuite name="Feature/Security">
+            <directory>tests/Feature/Security</directory>
         </testsuite>
     </testsuites>
     <source>
@@ -22,6 +30,7 @@
              DB_URL=...) which PHPUnit would otherwise not override, silently pointing
              tests at the wrong database. -->
         <env name="APP_ENV" value="testing" force="true"/>
+        <env name="APP_DEBUG" value="false" force="true"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="BROADCAST_CONNECTION" value="null"/>
