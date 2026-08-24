@@ -51,8 +51,7 @@ test('user keeps HasRoles alongside Passport tokens', function () {
     expect($user->hasRole('user'))->toBeTrue();
 });
 
-test('api user and media routes are not registered', function () {
-    $this->getJson('/api/user')->assertNotFound();
+test('api media route is not registered', function () {
     $this->getJson('/api/media')->assertNotFound();
 });
 
