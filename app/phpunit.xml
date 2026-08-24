@@ -47,6 +47,8 @@
         <env name="NIGHTWATCH_ENABLED" value="false"/>
         <env name="FILESYSTEM_DISK" value="local" force="true"/>
         <env name="LIVEWIRE_TEMPORARY_FILE_UPLOAD_DISK" value="local" force="true"/>
+        <env name="REDIS_URL" value="" force="true"/>
+        <env name="REVERB_REDIS" value="" force="true"/>
         <env name="AWS_ACCESS_KEY_ID" value="minio" force="true"/>
         <env name="AWS_SECRET_ACCESS_KEY" value="miniosecret" force="true"/>
         <env name="AWS_DEFAULT_REGION" value="us-east-1" force="true"/>

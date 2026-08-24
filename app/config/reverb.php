@@ -1,5 +1,7 @@
 <?php
 
+use App\Support\ReverbScaling;
+
 return [
 
     /*
@@ -38,10 +40,13 @@ return [
             ],
             'max_request_size' => env('REVERB_MAX_REQUEST_SIZE', 10_000),
             'scaling' => [
-                'enabled' => env('REVERB_SCALING_ENABLED', false),
+                'enabled' => env(
+                    'REVERB_SCALING_ENABLED',
+                    ReverbScaling::enabled(env('REDIS_URL'), env('REVERB_REDIS')),
+                ),
                 'channel' => env('REVERB_SCALING_CHANNEL', 'reverb'),
                 'server' => [
-                    'url' => env('REDIS_URL'),
+                    'url' => env('REVERB_REDIS', env('REDIS_URL')),
                     'host' => env('REDIS_HOST', '127.0.0.1'),
                     'port' => env('REDIS_PORT', '6379'),
                     'username' => env('REDIS_USERNAME'),
