@@ -5,6 +5,7 @@ Production-ready [Filament](https://filamentphp.com) 5.x / Laravel 13 template, 
 ## What's inside
 
 - **Filament 5 admin panel** (`/admin`) + app panel, Spatie roles (`super_admin` / `user`) + Filament Shield (no `is_admin` flag)
+- **Laravel Passport OAuth2** — personal access tokens, authorization code, refresh, and client credentials. Password grant is off. Signing keys come from `PASSPORT_PRIVATE_KEY` / `PASSPORT_PUBLIC_KEY` (PEM in env). Panel login stays email/password session. Mint PATs from the user menu (**API tokens**).
 - **FrankenPHP 1.12 / PHP 8.4** runtime (Debian base — the libSQL client's native library is glibc-only), non-root (`uid 1000`), read-only root filesystem, no capabilities, opcache with `validate_timestamps=0` (immutable-code optimizations)
 - **libSQL database layer** via [turso/libsql-laravel](https://github.com/tursodatabase/libsql-laravel), installed from the Laravel 13-compatible fork [mehdiamenein/libsql-laravel](https://github.com/mehdiamenein/libsql-laravel) (constraint + runtime fixes; FFI-based client). Session/cache/queue all use the `database` driver on libSQL — zero extra services.
 - **Multi-stage Docker build**: dev dependencies and node never reach the production image; frontend assets are compiled once and copied in as `public/build`
@@ -87,6 +88,28 @@ Dev compose runs community MinIO as the S3-compatible disk (`FILESYSTEM_DISK=s3`
 - **Livewire temporary uploads stay on the `local` disk** in this stack (`LIVEWIRE_TEMPORARY_FILE_UPLOAD_DISK=local`). A single app container can share that disk, and it avoids the MinIO hostname split (PHP sees `minio:9000`, the browser sees `localhost:9000`; rewriting a presigned URL host after signing breaks SigV4).
 - **Multi-replica production** (Magic Containers, more than one app replica): set `LIVEWIRE_TEMPORARY_FILE_UPLOAD_DISK=s3` so the upload request and the form submit can land on different pods. Point `AWS_*` at Bunny Storage / AWS / R2 — MinIO is local-dev only.
 
+## Passport (OAuth2)
+
+API auth is [Laravel Passport](https://laravel.com/docs/13.x/passport). Enabled grants: personal access, authorization code, refresh, client credentials. **Password grant is not enabled.** Filament panel login remains a session (`web` guard).
+
+Signing keys must live in env (Magic Containers have no persistent disk — `storage/oauth-*.key` will vanish on recycle):
+
+```bash
+php artisan passport:keys
+# paste storage/oauth-private.key into PASSPORT_PRIVATE_KEY (include BEGIN/END lines)
+# paste storage/oauth-public.key into PASSPORT_PUBLIC_KEY
+rm storage/oauth-private.key storage/oauth-public.key
+```
+
+Or with openssl:
+
+```bash
+openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:4096 -out private.pem
+openssl pkey -in private.pem -pubout -out public.pem
+```
+
+Quoted multiline PEM in `.env` / Magic Containers env is fine. After migrate, `php artisan db:seed` creates a personal-access client so the panel **API tokens** page can mint PATs. Do not call `Passport::enablePasswordGrant()`.
+
 ## Tests
 
 Tests run hermetically (sqlite `:memory:`, array session/cache, local filesystem) and are immune to the container's env vars — see `app/tests/TestCase.php`. S3 coverage uses `Storage::fake('s3')` plus phpunit env for disk config; no live MinIO in tests or CI.
@@ -111,7 +134,7 @@ Copy this matrix into `tests/Feature/Security/` whenever you add a Filament reso
 | user view_any | 200 | 200 list | 403 mutate others unless update_any |
 | super_admin | 200 | 200 | 200 |
 
-`actingAsPassport` uses Laravel `actingAs($user, 'api')` and does not require Passport. Full guest-vs-role `/admin` examples wait on Shield.
+`actingAsPassport` uses `Passport::actingAs`. Panel login stays the session `web` guard.
 
 ## Layout
 
