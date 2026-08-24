@@ -87,6 +87,8 @@ Dev compose runs community MinIO as the S3-compatible disk (`FILESYSTEM_DISK=s3`
 - **Livewire temporary uploads stay on the `local` disk** in this stack (`LIVEWIRE_TEMPORARY_FILE_UPLOAD_DISK=local`). A single app container can share that disk, and it avoids the MinIO hostname split (PHP sees `minio:9000`, the browser sees `localhost:9000`; rewriting a presigned URL host after signing breaks SigV4).
 - **Multi-replica production** (Magic Containers, more than one app replica): set `LIVEWIRE_TEMPORARY_FILE_UPLOAD_DISK=s3` so the upload request and the form submit can land on different pods. Point `AWS_*` at Bunny Storage / AWS / R2 — MinIO is local-dev only.
 
+Public object URLs are the S3 disk `url` (`AWS_URL`): set that to a pull-zone origin in front of the bucket, or leave it empty for MinIO / the bucket endpoint. Private objects always use `Storage::temporaryUrl()` against `AWS_ENDPOINT` — do not treat `AWS_URL` as a world-readable path for private files. Static assets (`asset()`, Vite, Filament published JS/CSS) pick up `ASSET_URL` at PHP runtime so one image can serve many CDN origins; leave it empty for local/dev, and do not set Vite `base` to a CDN in `vite.config.js` (that would bake the origin into the build).
+
 ## Tests
 
 Tests run hermetically (sqlite `:memory:`, array session/cache, local filesystem) and are immune to the container's env vars — see `app/tests/TestCase.php`. S3 coverage uses `Storage::fake('s3')` plus phpunit env for disk config; no live MinIO in tests or CI.
