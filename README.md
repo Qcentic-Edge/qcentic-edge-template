@@ -87,6 +87,20 @@ docker compose -f docker-compose.dev.yml --env-file .env.docker.dev exec app ven
 
 From `app/`: `composer test` / `php artisan test` (Pest), `composer lint` (Pint `--test`), `composer analyse` (Larastan level 5).
 
+## Authorization testing
+
+Copy this matrix into `tests/Feature/Security/` whenever you add a Filament resource (or API resource). Shared Pest helpers live in `tests/Support/authz.php`: `actingAsRole('user'|'super_admin')`, `actingAsPassport($user, $scopes)`, `asGuest()`, `assertForbiddenTo()`, `assertCannotTouchOthers($record)`. `seedUser()` / `seedSuperAdmin()` attach Spatie roles once Shield lands; until then they still create users.
+
+| Actor | AuthN | AuthZ module | AuthZ entity |
+| --- | --- | --- | --- |
+| guest | 401 / login | — | — |
+| user without perm | 200 login | 403 | — |
+| user owner | 200 | 200 own | 403 others private |
+| user view_any | 200 | 200 list | 403 mutate others unless update_any |
+| super_admin | 200 | 200 | 200 |
+
+`actingAsPassport` uses Laravel `actingAs($user, 'api')` and does not require Passport. Full guest-vs-role `/admin` examples wait on Shield.
+
 ## Layout
 
 ```
