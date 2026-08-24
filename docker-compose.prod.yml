@@ -70,6 +70,18 @@ services:
       migrate:
         condition: service_completed_successfully
 
+  reverb:
+    <<: *app
+    restart: unless-stopped
+    command: ["php", "artisan", "reverb:start"]
+    ports:
+      - "${REVERB_HOST_PORT:-8081}:8080"
+    healthcheck:
+      disable: true
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
   scheduler:
     <<: *app
     restart: unless-stopped

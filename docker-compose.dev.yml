@@ -55,10 +55,32 @@ services:
       minio-init:
         condition: service_completed_successfully
 
+  reverb:
+    <<: *app
+    restart: unless-stopped
+    command: ["php", "artisan", "reverb:start"]
+    ports:
+      - "${REVERB_HOST_PORT:-8081}:8080"
+    healthcheck:
+      disable: true
+    depends_on:
+      - migrate
+
+  queue:
+    <<: *app
+    restart: unless-stopped
+    command: ["php", "artisan", "queue:work", "--tries=3", "--timeout=60"]
+    healthcheck:
+      disable: true
+    depends_on:
+      - migrate
+
   vite:
     image: node:22-alpine
     restart: unless-stopped
     working_dir: /app
+    env_file:
+      - .env.docker.dev
     environment:
       # Makes laravel-vite-plugin bind 0.0.0.0 and write the hot file
       # as http://localhost:5173 (same behavior as Laravel Sail).
