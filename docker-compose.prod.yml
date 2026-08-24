@@ -70,6 +70,22 @@ services:
       migrate:
         condition: service_completed_successfully
 
+  # Optional Redis for Reverb horizontal scale-out. Default Reverb is
+  # in-memory; Laravel has no database persister for Reverb fan-out.
+  # Enable with: --profile redis  and set REDIS_URL / REVERB_SCALING_ENABLED.
+  redis:
+    image: redis:7-alpine
+    profiles:
+      - redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_HOST_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   reverb:
     <<: *app
     restart: unless-stopped
@@ -81,6 +97,9 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
+      redis:
+        condition: service_started
+        required: false
 
   scheduler:
     <<: *app

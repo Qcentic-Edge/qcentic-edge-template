@@ -7,14 +7,14 @@ Production-ready [Filament](https://filamentphp.com) 5.x / Laravel 13 template, 
 - **Filament 5 admin panel** (`/admin`) + app panel, Spatie roles (`super_admin` / `user`) + Filament Shield (no `is_admin` flag)
 - **Laravel Passport OAuth2** — personal access tokens, authorization code, refresh, and client credentials. Password grant is off. Signing keys come from `PASSPORT_PRIVATE_KEY` / `PASSPORT_PUBLIC_KEY` (PEM in env). Panel login stays email/password session. Mint PATs from the user menu (**API tokens**).
 - **FrankenPHP 1.12 / PHP 8.4** runtime (Debian base — the libSQL client's native library is glibc-only), non-root (`uid 1000`), read-only root filesystem, no capabilities, opcache with `validate_timestamps=0` (immutable-code optimizations)
-- **libSQL database layer** via [turso/libsql-laravel](https://github.com/tursodatabase/libsql-laravel), installed from the Laravel 13-compatible fork [mehdiamenein/libsql-laravel](https://github.com/mehdiamenein/libsql-laravel) (constraint + runtime fixes; FFI-based client). Session/cache/queue all use the `database` driver on libSQL — zero extra services.
+- **libSQL database layer** via [turso/libsql-laravel](https://github.com/tursodatabase/libsql-laravel), installed from the Laravel 13-compatible fork [mehdiamenein/libsql-laravel](https://github.com/mehdiamenein/libsql-laravel) (constraint + runtime fixes; FFI-based client). Session/cache/queue all use the `database` driver on libSQL — zero extra services. Reverb scale-out is the exception: it needs Redis (there is no database persister).
 - **Multi-stage Docker build**: dev dependencies and node never reach the production image; frontend assets are compiled once and copied in as `public/build`
 - **Three Compose files**:
 
 | File | Purpose |
 |---|---|
-| `docker-compose.dev.yml` | Local development: bind-mounted source, Vite HMR on `:5173`, `artisan serve` on `:8090`, local libSQL server (`sqld`) on `:8181`, MinIO on `:9000` (API) / `:9001` (console), hot reload for PHP + assets |
-| `docker-compose.prod.yml` | Production: runs a published image (read-only, hardened), one-shot migrate, queue worker, scheduler against a remote libSQL database (Bunny Database, Turso, or your own sqld). Optional bundled sqld via `--profile bundled-db` for local full-stack testing |
+| `docker-compose.dev.yml` | Local development: bind-mounted source, Vite HMR on `:5173`, `artisan serve` on `:8090`, local libSQL server (`sqld`) on `:8181`, MinIO on `:9000` (API) / `:9001` (console), Reverb on `:8081`, hot reload for PHP + assets. Optional Redis via `--profile redis` |
+| `docker-compose.prod.yml` | Production: runs a published image (read-only, hardened), one-shot migrate, queue worker, scheduler, Reverb against a remote libSQL database (Bunny Database, Turso, or your own sqld). Optional bundled sqld via `--profile bundled-db`. Optional Redis via `--profile redis` |
 | `docker-compose.build.yml` | Builds the production image locally (default `linux/amd64`). Nothing is pushed unless you explicitly run `build --push` with your own registry user |
 
 ## Quick start (dev)
@@ -78,6 +78,22 @@ docker compose -f docker-compose.prod.yml --env-file .env.docker.prod --profile 
 
 Leave `DB_URL` empty; compose defaults it to the bundled sqld service.
 
+## Reverb (realtime)
+
+Dev and prod compose run a Reverb sidecar (`php artisan reverb:start`) on host port `8081`. Fan-out defaults to **in-memory** — one Reverb process, no Redis.
+
+Laravel has **no database persister** for Reverb scale-out. Horizontal replicas need Redis pub/sub (`REVERB_SCALING_ENABLED`). The broadcast queue may stay on `QUEUE_CONNECTION=database`; pointing queues at Redis is optional and separate.
+
+To opt in:
+
+```bash
+# 1. Uncomment REDIS_URL, REVERB_REDIS, and REVERB_SCALING_ENABLED=true in .env.docker.dev
+# 2. Start Redis with the compose profile:
+docker compose -f docker-compose.dev.yml --env-file .env.docker.dev --profile redis up -d
+```
+
+Same profile name on prod: `--profile redis`. Leave those env vars empty (the default) and omit the profile to keep the in-memory server. `composer test` does not start or require Redis.
+
 ## Object storage (MinIO)
 
 Dev compose runs community MinIO as the S3-compatible disk (`FILESYSTEM_DISK=s3`). The `minio-init` sidecar creates the `filament` bucket on first boot.
@@ -114,7 +130,7 @@ Quoted multiline PEM in `.env` / Magic Containers env is fine. After migrate, `p
 
 ## Tests
 
-Tests run hermetically (sqlite `:memory:`, array session/cache, local filesystem) and are immune to the container's env vars — see `app/tests/TestCase.php`. S3 coverage uses `Storage::fake('s3')` plus phpunit env for disk config; no live MinIO in tests or CI.
+Tests run hermetically (sqlite `:memory:`, array session/cache, local filesystem) and are immune to the container's env vars — see `app/tests/TestCase.php`. S3 coverage uses `Storage::fake('s3')` plus phpunit env for disk config; no live MinIO or Redis in tests or CI.
 
 ```bash
 docker compose -f docker-compose.dev.yml --env-file .env.docker.dev exec app php artisan test
@@ -143,8 +159,8 @@ Copy this matrix into `tests/Feature/Security/` whenever you add a Filament reso
 ```
 app/                       Laravel + Filament application
   Dockerfile               multi-stage: app → dev → assets → runtime (Debian + FFI)
-docker-compose.dev.yml     dev stack (local sqld + MinIO)
-docker-compose.prod.yml    prod stack (remote libSQL or bundled sqld)
+docker-compose.dev.yml     dev stack (local sqld + MinIO; optional Redis via --profile redis)
+docker-compose.prod.yml    prod stack (remote libSQL or bundled sqld; optional Redis via --profile redis)
 docker-compose.build.yml   image build (local, no push by default)
 .env.docker.*.example      copy to .env.docker.* and fill in
 ```
