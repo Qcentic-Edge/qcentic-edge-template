@@ -1,6 +1,43 @@
-# qcentic-edge-template
+<p align="center">
+  <img src=".github/assets/banner.svg" alt="Qcentic Edge Template" width="100%" />
+</p>
 
-Production-ready [Filament](https://filamentphp.com) 5.x / Laravel 13 template, packaged as a hardened Docker image with three Compose stacks: **dev**, **prod**, and **build**. Database is **libSQL** everywhere — a local `sqld` server in dev, a managed libSQL database (e.g. [Bunny Database](https://bunny.net/docs/database/quickstart), Turso) in production.
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue.svg" alt="License: Apache-2.0" /></a>
+  <img src="https://img.shields.io/badge/Filament-5.x-f59e0b.svg" alt="Filament 5.x" />
+  <img src="https://img.shields.io/badge/Laravel-13-ff2d20.svg" alt="Laravel 13" />
+  <img src="https://img.shields.io/badge/PHP-8.4-777bb4.svg" alt="PHP 8.4" />
+  <img src="https://img.shields.io/badge/FrankenPHP-1.12-0a0a0a.svg" alt="FrankenPHP 1.12" />
+  <img src="https://img.shields.io/badge/libSQL-edge--ready-4ff8d2.svg" alt="libSQL" />
+</p>
+
+# Qcentic Edge Template
+
+**From idea to working software — fast.** A production-ready [Filament](https://filamentphp.com) 5.x / Laravel 13 template, packaged as one hardened Docker image with three Compose stacks (dev, prod, build), and **libSQL** as the database everywhere.
+
+## Why this template exists
+
+[Qcentic](https://qcentic.com/) is a consolidation company. We deliver technical consultation, software, and SaaS to SMEs and enterprises — and for us, **speed of prototyping and speed of delivery** matter more than anything. Our clients often don't need a big, sophisticated platform. They need a smaller solution that is real on day one: sometimes a lean MVP, sometimes a little more than an MVP — always something that runs cheaply, is easy to operate, and can live on the edge.
+
+We built this template so a clone is already a working application, not a starting ceremony. If your goal is to ship an MVP, a small application, or a small SaaS very fast — and you want strong opinions already made for you — this is for you.
+
+### Why Filament
+
+Filament gives an enormous amount of product for free: a full admin panel, forms, tables, infolists, actions, notifications, widgets, and a plugin ecosystem — all on top of Laravel, with first-class authorization. For "small solution, real features" work, nothing else in the PHP world ships this much this fast. The template targets **Filament 5.x only**.
+
+### Why libSQL
+
+[libSQL](https://github.com/tursodatabase/libsql) is the open fork of SQLite built for the edge: embedded replicas, HTTP access, and a growing set of managed providers — [Turso](https://turso.tech/), [Bunny Database](https://bunny.net/docs/database/quickstart), or your own `sqld`. One database technology covers local dev, CI, and global production, with session, cache, and queue all on the database driver. **Zero extra services** to run or pay for.
+
+### Why FrankenPHP, and why the Docker image looks like this
+
+[FrankenPHP](https://frankenphp.dev/) runs Laravel on a modern app server (worker mode, HTTP/2, HTTP/3) in a single process — no nginx + PHP-FPM pair to babysit. We package it as one multi-stage image:
+
+- **One service, not five.** App, queue worker, and scheduler all come from the same image. A small VPS or a single Magic Container runs the whole product.
+- **Debian base, deliberately.** The libSQL PHP client loads a glibc native library through FFI; no musl build exists, so Alpine is out. We sized the image around that constraint instead of fighting it.
+- **Hardened by default.** Non-root (`uid 1000`), read-only root filesystem, no capabilities, opcache with `validate_timestamps=0`. Dev dependencies and Node never reach the production image.
+
+The result: clone, `docker compose up`, and you have an admin panel, OAuth2 API, media drive, realtime, and object storage — in minutes, not sprints.
 
 ## What's inside
 
@@ -172,6 +209,18 @@ docker-compose.build.yml   image build (local, no push by default)
 - **Debian base, not alpine**: the `turso/libsql` PHP client loads a glibc native library through FFI; no musl build exists.
 - **Bunny Database caveats** (managed libSQL): 1 GB per DB, up to ~10s replication window, no read-your-writes on replicas. Fine for template-scale apps.
 
+## Community
+
+- **Contributing** — see [CONTRIBUTING.md](CONTRIBUTING.md). Bug reports, recipes, and PRs welcome.
+- **Code of Conduct** — this project follows the [Contributor Covenant](CODE_OF_CONDUCT.md).
+- **Security** — please report vulnerabilities privately per [SECURITY.md](SECURITY.md).
+
 ## License
 
 Apache-2.0 — see [LICENSE](LICENSE).
+
+---
+
+<p align="center">
+  Built by <a href="https://qcentic.com/">Qcentic GmbH</a> — from idea to working software.
+</p>
