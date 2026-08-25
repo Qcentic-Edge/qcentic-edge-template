@@ -7,13 +7,10 @@ use Orchestra\Testbench\TestCase as Orchestra;
 
 abstract class TestCase extends Orchestra
 {
-    protected string $lockFile;
-
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->lockFile = sys_get_temp_dir().'/installer-test-'.uniqid().'.lock';
         $key = 'base64:'.base64_encode(random_bytes(32));
         config()->set('app.key', $key);
         putenv('APP_KEY='.$key);
@@ -22,18 +19,9 @@ abstract class TestCase extends Orchestra
         putenv('DB_CONNECTION=testing');
         $_ENV['DB_CONNECTION'] = 'testing';
         $_SERVER['DB_CONNECTION'] = 'testing';
-        config()->set('installer.lock_file', $this->lockFile);
         config()->set('installer.required_env', ['APP_KEY', 'DB_CONNECTION']);
+        config()->set('installer.enabled', true);
         config()->set('database.default', 'testing');
-    }
-
-    protected function tearDown(): void
-    {
-        if (file_exists($this->lockFile)) {
-            unlink($this->lockFile);
-        }
-
-        parent::tearDown();
     }
 
     protected function defineEnvironment($app): void

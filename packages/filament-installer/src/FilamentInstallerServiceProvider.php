@@ -18,17 +18,20 @@ class FilamentInstallerServiceProvider extends PackageServiceProvider
             ->name(static::$name)
             ->hasConfigFile()
             ->hasViews()
-            ->hasRoute('web');
+            ->hasRoute('web')
+            ->hasMigration('create_installer_locks_table')
+            ->runsMigrations();
     }
 
     public function packageBooted(): void
     {
-        if (! config('installer.enabled', true)) {
+        // INSTALLER_ENABLED=false: no redirects, app is fully open.
+        if (InstallerState::isRetired()) {
             return;
         }
 
         // Database session/cache stores need tables that only exist after
-        // migrate. Until the lock file exists, use drivers that need no schema
+        // migrate. Until the DB lock row exists, use drivers that need no schema
         // (cookie sessions work on ephemeral Magic Container disks).
         if (! InstallerState::isInstalled()) {
             config([

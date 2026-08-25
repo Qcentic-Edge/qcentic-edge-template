@@ -4,24 +4,53 @@ namespace Mamenein\FilamentInstaller\Support;
 
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 class InstallerState
 {
+    public const LOCK_TABLE = 'installer_locks';
+
+    /**
+     * True after migrate/seed/user succeeded (row in installer_locks).
+     * Shared across replicas — no local disk.
+     */
     public static function isInstalled(): bool
     {
-        return file_exists((string) config('installer.lock_file'));
+        try {
+            if (! Schema::hasTable(self::LOCK_TABLE)) {
+                return false;
+            }
+
+            return DB::table(self::LOCK_TABLE)->exists();
+        } catch (Throwable) {
+            return false;
+        }
+    }
+
+    /**
+     * Master switch off (INSTALLER_ENABLED=false). App is open; installer retired.
+     */
+    public static function isRetired(): bool
+    {
+        return ! (bool) config('installer.enabled', true);
     }
 
     public static function lock(): void
     {
-        $file = (string) config('installer.lock_file');
-
-        if (! is_dir(dirname($file))) {
-            mkdir(dirname($file), 0755, true);
+        if (! Schema::hasTable(self::LOCK_TABLE)) {
+            throw new \RuntimeException(
+                'installer_locks table missing. Migrations must run before lock().'
+            );
         }
 
-        file_put_contents($file, now()->toIso8601String());
+        if (DB::table(self::LOCK_TABLE)->exists()) {
+            return;
+        }
+
+        DB::table(self::LOCK_TABLE)->insert([
+            'installed_at' => now(),
+        ]);
     }
 
     /**

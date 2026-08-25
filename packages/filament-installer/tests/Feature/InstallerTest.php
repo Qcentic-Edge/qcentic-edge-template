@@ -7,7 +7,7 @@ use Mamenein\FilamentInstaller\Tests\TestCase;
 
 class InstallerTest extends TestCase
 {
-    public function test_requests_redirect_to_installer_until_installed(): void
+    public function test_requests_redirect_to_installer_until_retired(): void
     {
         $this->get('/')->assertRedirect(url('install'));
     }
@@ -31,17 +31,47 @@ class InstallerTest extends TestCase
         $this->get('/install')->assertOk();
     }
 
-    public function test_run_migrates_and_locks_the_installer(): void
+    public function test_run_migrates_and_writes_database_lock(): void
     {
         config()->set('installer.create_user', false);
 
-        $this->post('/install')->assertRedirect(url('/'));
+        $this->post('/install')->assertRedirect(route('installer.show'));
 
         $this->assertTrue(InstallerState::isInstalled());
+        $this->assertTrue(\Illuminate\Support\Facades\Schema::hasTable('installer_locks'));
+        $this->assertDatabaseCount('installer_locks', 1);
+
+        // Still ENABLED → complete page, not the app.
+        $this->get('/')->assertRedirect(url('install'));
+        $this->get('/install')
+            ->assertOk()
+            ->assertSee('INSTALLER_ENABLED')
+            ->assertSee('Database ready');
+    }
+
+    public function test_check_stays_on_complete_while_installer_enabled(): void
+    {
+        config()->set('installer.create_user', false);
+
+        $this->post('/install');
+        $this->assertTrue(InstallerState::isInstalled());
+
+        $this->post(route('installer.check'))
+            ->assertRedirect(route('installer.show'))
+            ->assertSessionHas('installer_error');
+    }
+
+    public function test_retired_installer_opens_the_app(): void
+    {
+        config()->set('installer.create_user', false);
+        $this->post('/install');
+        $this->assertTrue(InstallerState::isInstalled());
+
+        config()->set('installer.enabled', false);
 
         $this->get('/')->assertOk()->assertSee('home');
-        $this->get('/install')->assertNotFound();
-        $this->post('/install')->assertNotFound();
+        $this->get('/install')->assertRedirect(url('/'));
+        $this->post(route('installer.check'))->assertRedirect(url('/'));
     }
 
     public function test_run_creates_the_first_user(): void
@@ -60,7 +90,7 @@ class InstallerTest extends TestCase
             'name' => 'Admin',
             'email' => 'admin@example.com',
             'password' => 'Str0ng!Password',
-        ])->assertRedirect(url('/'));
+        ])->assertRedirect(route('installer.show'));
 
         $user = \Mamenein\FilamentInstaller\Tests\Fixtures\User::query()->sole();
 
@@ -75,7 +105,7 @@ class InstallerTest extends TestCase
         config()->set('installer.seeders', [\Mamenein\FilamentInstaller\Tests\Fixtures\ProbeSeeder::class]);
         \Mamenein\FilamentInstaller\Tests\Fixtures\ProbeSeeder::$ran = false;
 
-        $this->post('/install')->assertRedirect(url('/'));
+        $this->post('/install')->assertRedirect(route('installer.show'));
 
         $this->assertTrue(\Mamenein\FilamentInstaller\Tests\Fixtures\ProbeSeeder::$ran);
         $this->assertTrue(InstallerState::isInstalled());
@@ -103,7 +133,7 @@ class InstallerTest extends TestCase
             'name' => 'Admin',
             'email' => 'admin@example.com',
             'password' => 'Str0ng!Password',
-        ])->assertRedirect(url('/'));
+        ])->assertRedirect(route('installer.show'));
 
         $user = \Mamenein\FilamentInstaller\Tests\Fixtures\User::query()->sole();
 
@@ -138,5 +168,16 @@ class InstallerTest extends TestCase
         $this->post('/install')->assertRedirect();
 
         $this->assertFalse(InstallerState::isInstalled());
+    }
+
+    public function test_lock_is_idempotent_across_replicas(): void
+    {
+        config()->set('installer.create_user', false);
+        $this->post('/install');
+
+        InstallerState::lock();
+        InstallerState::lock();
+
+        $this->assertDatabaseCount('installer_locks', 1);
     }
 }

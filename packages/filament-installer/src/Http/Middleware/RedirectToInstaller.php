@@ -11,7 +11,8 @@ class RedirectToInstaller
 {
     public function handle(Request $request, Closure $next): Response
     {
-        if (InstallerState::isInstalled()) {
+        // INSTALLER_ENABLED=false → app is open (stateless retire gate).
+        if (InstallerState::isRetired()) {
             return $next($request);
         }
 
@@ -21,12 +22,13 @@ class RedirectToInstaller
             return $next($request);
         }
 
-        // Let framework internals (Vite dev assets, Livewire messages, the
-        // health check) through so the installer page itself still works.
-        if ($request->is('_vite*', 'livewire/*', 'up')) {
+        // Vite, Livewire (including hashed /livewire-{id}/…), health.
+        if ($request->is('_vite*', 'livewire/*', 'livewire-*', 'livewire-*/*', 'up')) {
             return $next($request);
         }
 
+        // Not DB-locked yet, or locked but still waiting for INSTALLER_ENABLED=false:
+        // keep traffic on /install (checklist or complete page).
         return redirect()->to(url($path));
     }
 }

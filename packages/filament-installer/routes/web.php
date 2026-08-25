@@ -8,4 +8,5 @@ Route::middleware('web')->group(function (): void {
 
     Route::get($path, [InstallController::class, 'show'])->name('installer.show');
     Route::post($path, [InstallController::class, 'run'])->name('installer.run');
+    Route::post($path.'/check', [InstallController::class, 'check'])->name('installer.check');
 });

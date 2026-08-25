@@ -116,8 +116,8 @@ TLS is terminated upstream (bunny edge, Traefik, Caddy, nginx, …) — the cont
    - Bunny Storage: zone **name** → `AWS_ACCESS_KEY_ID` + `AWS_BUCKET`; zone **password** → `AWS_SECRET_ACCESS_KEY`; region code (`de`) → `AWS_DEFAULT_REGION`; `AWS_ENDPOINT=https://{region}-s3.storage.bunnycdn.com`; pull zone → `AWS_URL`
    - Passport PEMs as one-line `\n`-escaped values (see Passport section)
    - `INSTALLER_ENABLED=true`
-3. Open `/install`, run migrations (seeds `RoleSeeder` + `PassportClientSeeder`, creates super_admin).
-4. Set `INSTALLER_ENABLED=false` and redeploy to retire the installer.
+3. Open `/install`, run migrations (seeds `RoleSeeder` + `PassportClientSeeder`, creates super_admin). You land on a complete page.
+4. Set `INSTALLER_ENABLED=false`, redeploy, press **Check** (or open `/`) — that retires the installer on a stateless host. The DB lock (`installer_locks`) records that setup ran; the env var opens the app.
 
 While unlocked, the installer forces cookie sessions + array cache so `SESSION_DRIVER=database` does not 500 before the `sessions` table exists.
 

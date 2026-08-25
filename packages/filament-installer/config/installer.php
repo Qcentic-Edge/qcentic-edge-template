@@ -2,14 +2,15 @@
 
 return [
     /*
-     * Master switch. Set INSTALLER_ENABLED=false once you never want the
-     * installer again (e.g. after the first production deploy).
+     * Master switch. After the DB lock is written, set INSTALLER_ENABLED=false
+     * in the host env and redeploy. That is what opens the app for good on
+     * stateless hosts (Magic Containers) — not a local lock file.
      */
     'enabled' => env('INSTALLER_ENABLED', true),
 
     /*
-     * URI the installer lives on. Everything else redirects here until the
-     * lock file exists.
+     * URI the installer lives on. Everything else redirects here until
+     * INSTALLER_ENABLED=false.
      */
     'path' => env('INSTALLER_PATH', 'install'),
 
@@ -23,12 +24,6 @@ return [
         'DB_CONNECTION',
         'DB_URL',
     ],
-
-    /*
-     * Written after a successful migration run. While it exists the
-     * installer route 404s and the middleware passes through.
-     */
-    'lock_file' => storage_path('app/.installer-installed'),
 
     /*
      * Offer name/email/password fields on the installer and create the first
