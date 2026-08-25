@@ -5,7 +5,7 @@
 # native libraries (loaded via ext-ffi), which cannot run on musl.
 FROM dunglas/frankenphp:1.12.7-php8.4-bookworm AS app
 
-RUN install-php-extensions ffi intl bcmath pcntl posix zip opcache
+RUN install-php-extensions ffi intl bcmath pcntl posix zip opcache exif gd
 
 # ffi.enable=1: the libSQL client (turso/libsql) loads its native library via FFI.
 RUN printf '%s\n' 'ffi.enable=1' > /usr/local/etc/php/conf.d/99-ffi.ini
@@ -15,11 +15,13 @@ WORKDIR /app
 
 COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
 
-# Install deps first for a stable layer cache
-COPY composer.json composer.lock ./
+# Install deps first for a stable layer cache. Build context is the repo
+# root (not app/) so composer path repositories under ../packages resolve.
+COPY app/composer.json app/composer.lock ./
+COPY packages /packages
 RUN composer install --no-dev --no-scripts --no-interaction --prefer-dist
 
-COPY . .
+COPY app/ .
 RUN mkdir -p storage/framework/views \
               storage/framework/cache/data \
               storage/framework/sessions \
@@ -45,9 +47,9 @@ RUN composer install --no-interaction --prefer-dist
 # ── assets: build the frontend ─────────────────────────────────────────
 FROM node:22-alpine AS assets
 WORKDIR /app
-COPY .npmrc package.json package-lock.json ./
+COPY app/.npmrc app/package.json app/package-lock.json ./
 RUN npm ci
-COPY . .
+COPY app/ .
 RUN npm run build
 
 # ── runtime: slim, non-root, no capabilities ───────────────────────────

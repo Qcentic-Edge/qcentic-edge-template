@@ -23,8 +23,8 @@ services:
   app:
     image: ${IMAGE_NAME:-qcentic-edge-template:latest}
     build:
-      context: ./app
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: app/Dockerfile
       target: runtime
       platforms:
         - ${BUILD_PLATFORMS:-linux/amd64}

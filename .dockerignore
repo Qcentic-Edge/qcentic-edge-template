@@ -1,0 +1,16 @@
+.git
+.github
+app/.env
+app/.env.*
+!app/.env.example
+app/node_modules
+app/vendor
+app/storage
+app/public/build
+app/public/hot
+app/database/*.sqlite
+app/bootstrap/cache/*
+packages/*/vendor
+packages/*/.git
+*.log
+.DS_Store

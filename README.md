@@ -44,6 +44,7 @@ The result: clone, `docker compose up`, and you have an admin panel, OAuth2 API,
 - **Filament 5 admin panel** (`/admin`) + app panel, Spatie roles (`super_admin` / `user`) + Filament Shield (no `is_admin` flag)
 - **Media Drive plugin** (`packages/filament-media-drive`) — first-party Drive page (grid/list) + picker field on Spatie Media Library / `s3` disk
 - **Laravel Passport OAuth2** — personal access tokens, authorization code, refresh, and client credentials. Password grant is off. Signing keys come from `PASSPORT_PRIVATE_KEY` / `PASSPORT_PUBLIC_KEY` (PEM in env). Panel login stays email/password session. Mint PATs from the user menu (**API tokens**).
+- **First-run installer** (`mamenein/filament-installer`) — `/install` checklist + migrate/seed/first user for Magic Containers (no shell). Cookie sessions until locked.
 - **FrankenPHP 1.12 / PHP 8.4** runtime (Debian base — the libSQL client's native library is glibc-only), non-root (`uid 1000`), read-only root filesystem, no capabilities, opcache with `validate_timestamps=0` (immutable-code optimizations)
 - **libSQL database layer** via [turso/libsql-laravel](https://github.com/tursodatabase/libsql-laravel), installed from the Laravel 13-compatible fork [mehdiamenein/libsql-laravel](https://github.com/mehdiamenein/libsql-laravel) (constraint + runtime fixes; FFI-based client). Session/cache/queue all use the `database` driver on libSQL — zero extra services. Reverb scale-out is the exception: it needs Redis (there is no database persister).
 - **Multi-stage Docker build**: dev dependencies and node never reach the production image; frontend assets are compiled once and copied in as `public/build`
@@ -102,11 +103,23 @@ cp .env.docker.prod.example .env.docker.prod
 docker compose -f docker-compose.prod.yml --env-file .env.docker.prod up -d
 ```
 
-The `migrate` service waits for the database to accept connections, runs `php artisan migrate --force` once, then the app, queue worker, and scheduler start.
-
-On bunny.net Magic Containers you don't even need `DB_URL`/`DB_AUTH_TOKEN`: link your Bunny Database to the app and bunny injects `BUNNY_DATABASE_URL` + `BUNNY_DATABASE_AUTH_TOKEN`, which the compose file picks up automatically.
+The `migrate` service waits for the database to accept connections, runs `php artisan migrate --force` once, then the app, queue worker, and scheduler start. On Magic Containers prefer the web installer (`/install`) instead of the compose migrate sidecar — set `INSTALLER_ENABLED=true` and use explicit `DB_URL` / `DB_AUTH_TOKEN` (no Bunny-injected name fallbacks).
 
 TLS is terminated upstream (bunny edge, Traefik, Caddy, nginx, …) — the container serves plain HTTP on `:8080`.
+
+### Magic Containers (first boot)
+
+1. Push builds GHCR via `.github/workflows/build-image.yml` (`linux/amd64`).
+2. Set env from `.env.docker.prod.example`. Critical:
+   - `APP_URL` with **no trailing slash**
+   - Explicit `DB_URL` / `DB_AUTH_TOKEN` (no Bunny fallbacks)
+   - Bunny Storage: zone **name** → `AWS_ACCESS_KEY_ID` + `AWS_BUCKET`; zone **password** → `AWS_SECRET_ACCESS_KEY`; region code (`de`) → `AWS_DEFAULT_REGION`; `AWS_ENDPOINT=https://{region}-s3.storage.bunnycdn.com`; pull zone → `AWS_URL`
+   - Passport PEMs as one-line `\n`-escaped values (see Passport section)
+   - `INSTALLER_ENABLED=true`
+3. Open `/install`, run migrations (seeds `RoleSeeder` + `PassportClientSeeder`, creates super_admin).
+4. Set `INSTALLER_ENABLED=false` and redeploy to retire the installer.
+
+While unlocked, the installer forces cookie sessions + array cache so `SESSION_DRIVER=database` does not 500 before the `sessions` table exists.
 
 ### Run with a bundled local sqld instead
 
@@ -173,7 +186,7 @@ docker compose -f docker-compose.dev.yml --env-file .env.docker.dev exec app \
 # …same for oauth-public.key, then rm both files via exec app
 ```
 
-Local `.env` may also use a quoted multiline PEM. After migrate, `php artisan db:seed` creates a personal-access client so the panel **API tokens** page can mint PATs. Do not call `Passport::enablePasswordGrant()`.
+Local `.env` may also use a quoted multiline PEM. After migrate (or the web installer), `PassportClientSeeder` creates a personal-access client so the panel **API tokens** page can mint PATs. Do not call `Passport::enablePasswordGrant()`.
 
 ## Tests
 
