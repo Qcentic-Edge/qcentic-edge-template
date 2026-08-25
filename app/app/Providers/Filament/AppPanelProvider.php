@@ -29,6 +29,7 @@ class AppPanelProvider extends PanelProvider
         return $panel
             ->id('app')
             ->path('app')
+            ->brandName(config('app.name'))
             ->login()
             ->registration()
             ->passwordReset()

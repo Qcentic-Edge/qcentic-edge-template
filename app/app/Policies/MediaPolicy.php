@@ -68,7 +68,14 @@ class MediaPolicy
             return true;
         }
 
-        $ownerId = data_get($media, 'user_id') ?? data_get($media, 'owner_id');
+        $related = $media->model;
+        if ($related !== null && isset($related->user_id) && (int) $related->user_id === (int) $user->id) {
+            return true;
+        }
+
+        $ownerId = $media->getCustomProperty('user_id')
+            ?? data_get($media, 'user_id')
+            ?? data_get($media, 'owner_id');
 
         return $ownerId !== null && (int) $ownerId === (int) $user->id;
     }

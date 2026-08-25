@@ -52,7 +52,7 @@ return [
             'key' => env('AWS_ACCESS_KEY_ID'),
             'secret' => env('AWS_SECRET_ACCESS_KEY'),
             'region' => env('AWS_DEFAULT_REGION'),
-            'bucket' => env('AWS_BUCKET'),
+            'bucket' => getenv('AWS_BUCKET') ?: env('AWS_BUCKET'),
             // Public objects only (Storage::url). Empty = bucket/MinIO endpoint.
             // Private objects use temporaryUrl() against `endpoint`, not this URL.
             'url' => env('AWS_URL') ?: null,
@@ -61,7 +61,7 @@ return [
             // MinIO/Bunny have no ACLs; skip GetObjectAcl on copies (Laravel's R2 pattern).
             'retain_visibility' => false,
             'throw' => false,
-            'report' => false,
+            'report' => true,
         ],
 
     ],

@@ -24,6 +24,8 @@ class DrivePage extends Page
 
     protected static ?string $slug = 'drive';
 
+    protected static bool $shouldRegisterNavigation = false;
+
     public string $viewMode = 'grid';
 
     /**

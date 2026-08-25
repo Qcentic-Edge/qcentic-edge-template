@@ -1,4 +1,4 @@
-# my-base-filament-template
+# qcentic-edge-template
 
 Production-ready [Filament](https://filamentphp.com) 5.x / Laravel 13 template, packaged as a hardened Docker image with three Compose stacks: **dev**, **prod**, and **build**. Database is **libSQL** everywhere — a local `sqld` server in dev, a managed libSQL database (e.g. [Bunny Database](https://bunny.net/docs/database/quickstart), Turso) in production.
 
@@ -52,7 +52,7 @@ docker compose -f docker-compose.build.yml build
 Tag it however you like (`IMAGE_NAME=...`), and push to your own registry only when you choose to:
 
 ```bash
-IMAGE_NAME=<registry-user>/my-base-filament-template:latest \
+IMAGE_NAME=<registry-user>/qcentic-edge-template:latest \
   docker compose -f docker-compose.build.yml build --push
 ```
 
@@ -97,7 +97,7 @@ Same profile name on prod: `--profile redis`. Leave those env vars empty (the de
 
 ## Object storage (MinIO)
 
-Dev compose runs community MinIO as the S3-compatible disk (`FILESYSTEM_DISK=s3`). The `minio-init` sidecar creates the `filament` bucket on first boot.
+Dev compose runs community MinIO as the S3-compatible disk (`FILESYSTEM_DISK=s3`). The `minio-init` sidecar creates the `filament` bucket on first boot and sets **anonymous download** so `AWS_URL=http://localhost:9000/filament` works in the browser without signing. Writes still need the root keys. Production uses a Bunny pull zone, not this policy.
 
 - API: http://localhost:9000
 - Console: http://localhost:9001 (credentials = `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` in `.env.docker.dev`)

@@ -1,17 +1,19 @@
-name: filament-dev
+name: qcentic-edge-template-dev
 
 x-app: &app
   build:
     context: ./app
     target: dev
-  image: ${DEV_IMAGE_NAME:-filament-app:dev}
+  image: ${DEV_IMAGE_NAME:-qcentic-edge-template:dev}
   env_file:
     - .env.docker.dev
   environment:
+    APP_NAME: "${APP_NAME:-Qcentic Edge Template}"
     DB_CONNECTION: libsql
     DB_URL: ${DB_URL:-http://db:8080}
   volumes:
     - ./app:/app
+    - ./packages/filament-media-drive:/packages/filament-media-drive
     - /app/vendor
     - /app/node_modules
 
@@ -152,6 +154,10 @@ services:
           sleep 1
         done
         mc mb --ignore-existing "local/$$AWS_BUCKET"
+        # Local-dev only: unsigned GET so the browser can load AWS_URL objects
+        # (http://localhost:9000/<bucket>/...). Writes still need the root keys.
+        # Production uses a Bunny pull zone, not anonymous MinIO.
+        mc anonymous set download "local/$$AWS_BUCKET"
 
 volumes:
   db_data:

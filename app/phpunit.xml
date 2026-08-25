@@ -33,6 +33,7 @@
              DB_URL=...) which PHPUnit would otherwise not override, silently pointing
              tests at the wrong database. -->
         <env name="APP_ENV" value="testing" force="true"/>
+        <env name="APP_NAME" value="Qcentic Edge Template" force="true"/>
         <env name="APP_DEBUG" value="false" force="true"/>
         <env name="APP_KEY" value="base64:2fl+Ktvkfl+Fuz4Qp/Ej30lCI73AXvCD7U+FhCjqHiE=" force="true"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>

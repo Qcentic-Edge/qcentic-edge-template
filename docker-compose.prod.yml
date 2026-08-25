@@ -1,10 +1,11 @@
-name: filament-prod
+name: qcentic-edge-template-prod
 
 x-app: &app
-  image: ${IMAGE_NAME:?set IMAGE_NAME in .env.docker.prod, e.g. <registry-user>/my-base-filament-template:latest}
+  image: ${IMAGE_NAME:?set IMAGE_NAME in .env.docker.prod, e.g. <registry-user>/qcentic-edge-template:latest}
   env_file:
     - .env.docker.prod
   environment:
+    APP_NAME: "${APP_NAME:-Qcentic Edge Template}"
     DB_CONNECTION: libsql
     # Explicit DB_URL wins; else the vars Bunny Database injects into Magic
     # Containers; else the bundled sqld service (used with --profile bundled-db).

@@ -1,4 +1,4 @@
-name: filament-build
+name: qcentic-edge-template-build
 
 # Builds the production image. Local only — nothing is pushed anywhere.
 #
@@ -6,22 +6,22 @@ name: filament-build
 #     docker compose -f docker-compose.build.yml build
 #
 #   Build a specific tag:
-#     IMAGE_NAME=<registry-user>/my-base-filament-template:v1.0.0 \
+#     IMAGE_NAME=<registry-user>/qcentic-edge-template:v1.0.0 \
 #       docker compose -f docker-compose.build.yml build
 #
 #   Push (only when YOU choose to, with your own registry user):
-#     IMAGE_NAME=<registry-user>/my-base-filament-template:latest \
+#     IMAGE_NAME=<registry-user>/qcentic-edge-template:latest \
 #       docker compose -f docker-compose.build.yml build --push
 #
 #   Multi-arch (needs a docker-container builder:
 #   `docker buildx create --use`) and push:
 #     BUILD_PLATFORMS=linux/amd64,linux/arm64 \
-#       IMAGE_NAME=<registry-user>/my-base-filament-template:latest \
+#       IMAGE_NAME=<registry-user>/qcentic-edge-template:latest \
 #       docker compose -f docker-compose.build.yml build --push
 
 services:
   app:
-    image: ${IMAGE_NAME:-my-base-filament-template:latest}
+    image: ${IMAGE_NAME:-qcentic-edge-template:latest}
     build:
       context: ./app
       dockerfile: Dockerfile

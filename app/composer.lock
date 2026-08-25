@@ -4665,7 +4665,7 @@
                 }
             ],
             "description": "Filament 5 Drive-style media browser and picker field on Spatie Media Library (s3 disk).",
-            "homepage": "https://github.com/mamenein/my-base-filament-template",
+            "homepage": "https://github.com/Qcentic-Edge/qcentic-edge-template",
             "keywords": [
                 "drive",
                 "filament",

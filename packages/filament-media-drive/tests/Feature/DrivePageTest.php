@@ -17,6 +17,10 @@ beforeEach(function () {
     $this->seed(RoleSeeder::class);
 });
 
+test('drive page is not in the panel sidebar', function () {
+    expect(DrivePage::shouldRegisterNavigation())->toBeFalse();
+});
+
 test('guest is redirected from the drive page', function () {
     asGuest();
 
