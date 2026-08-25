@@ -148,23 +148,32 @@ Public object URLs are the S3 disk `url` (`AWS_URL`): set that to a pull-zone or
 
 API auth is [Laravel Passport](https://laravel.com/docs/13.x/passport). Enabled grants: personal access, authorization code, refresh, client credentials. **Password grant is not enabled.** Filament panel login remains a session (`web` guard).
 
-Signing keys must live in env (Magic Containers have no persistent disk — `storage/oauth-*.key` will vanish on recycle):
+Signing keys must live in env (Magic Containers have no persistent disk — `storage/oauth-*.key` will vanish on recycle). Run every command from `app/` (Laravel root), not the repo root — or use the `docker compose … exec app` form below.
 
 ```bash
+# 1. Generate key files
 php artisan passport:keys
-# paste storage/oauth-private.key into PASSPORT_PRIVATE_KEY (include BEGIN/END lines)
-# paste storage/oauth-public.key into PASSPORT_PUBLIC_KEY
+
+# 2. Dump as one line (\\n escapes) for Magic Containers / single-line env UIs
+php -r 'echo str_replace(["\r\n","\n","\r"], "\\n", file_get_contents("storage/oauth-private.key"));'
+php -r 'echo str_replace(["\r\n","\n","\r"], "\\n", file_get_contents("storage/oauth-public.key"));'
+
+# 3. Paste into PASSPORT_PRIVATE_KEY / PASSPORT_PUBLIC_KEY (keep BEGIN/END lines)
+
+# 4. Remove disk copies
 rm storage/oauth-private.key storage/oauth-public.key
 ```
 
-Or with openssl:
+Docker (from repo root, compose already up):
 
 ```bash
-openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:4096 -out private.pem
-openssl pkey -in private.pem -pubout -out public.pem
+docker compose -f docker-compose.dev.yml --env-file .env.docker.dev exec app php artisan passport:keys
+docker compose -f docker-compose.dev.yml --env-file .env.docker.dev exec app \
+  php -r 'echo str_replace(["\r\n","\n","\r"], "\\n", file_get_contents("storage/oauth-private.key"));'
+# …same for oauth-public.key, then rm both files via exec app
 ```
 
-Quoted multiline PEM in `.env` / Magic Containers env is fine. After migrate, `php artisan db:seed` creates a personal-access client so the panel **API tokens** page can mint PATs. Do not call `Passport::enablePasswordGrant()`.
+Local `.env` may also use a quoted multiline PEM. After migrate, `php artisan db:seed` creates a personal-access client so the panel **API tokens** page can mint PATs. Do not call `Passport::enablePasswordGrant()`.
 
 ## Tests
 
