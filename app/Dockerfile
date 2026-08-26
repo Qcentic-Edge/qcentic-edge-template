@@ -37,12 +37,15 @@ RUN mkdir -p storage/framework/views \
     && chown -R 1000:1000 storage bootstrap/cache
 
 # ── dev: dev dependencies + composer kept, used by docker-compose.dev.yml
-# Source is bind-mounted over /app at runtime; the anonymous volume on
-# /app/vendor keeps this layer's vendor directory visible inside the container.
+# Source is bind-mounted over /app at runtime; named volume composer_vendor
+# on /app/vendor is empty until the entrypoint runs composer install.
 FROM app AS dev
 # The app stage removed composer (production hygiene); bring it back for dev.
 COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
-RUN composer install --no-interaction --prefer-dist
+COPY docker/dev-entrypoint.sh /usr/local/bin/dev-entrypoint.sh
+RUN chmod +x /usr/local/bin/dev-entrypoint.sh \
+    && composer install --no-interaction --prefer-dist
+ENTRYPOINT ["/usr/local/bin/dev-entrypoint.sh"]
 
 # ── assets: build the frontend ─────────────────────────────────────────
 FROM node:22-alpine AS assets
