@@ -205,6 +205,25 @@ docker compose -f docker-compose.dev.yml --env-file .env.docker.dev exec app \
 
 Local `.env` may also use a quoted multiline PEM. After migrate (or the web installer), `PassportClientSeeder` creates a personal-access client so the panel **API tokens** page can mint PATs. Do not call `Passport::enablePasswordGrant()`.
 
+## Optional: Content API
+
+The template does **not** install Content API by default. After a clone, enable it only if you need hashed API keys, scoped REST for Filament resources, and signed webhooks:
+
+```bash
+composer require mamenein/filament-content-api
+php artisan filament-content-api:install
+```
+
+Register the plugin on the panel:
+
+```php
+use Mamenein\FilamentContentApi\FilamentContentApiPlugin;
+
+$panel->plugin(FilamentContentApiPlugin::make());
+```
+
+Env keys (`API_URL`, `API_KEY`, and related settings) are needed **only after** you enable the plugin. They come from the package `.env.example` / install output — they are not forced into this template’s `.env.example`.
+
 ## Tests
 
 Tests run hermetically (sqlite `:memory:`, array session/cache, local filesystem) and are immune to the container's env vars — see `app/tests/TestCase.php`. S3 coverage uses `Storage::fake('s3')` plus phpunit env for disk config; no live MinIO or Redis in tests or CI.
