@@ -59,12 +59,13 @@ The result: clone, `docker compose up`, and you have an admin panel, OAuth2 API,
 ## Quick start (dev)
 
 ```bash
+cp .env.example .env
+# clones: set a unique COMPOSE_PROJECT_NAME in `.env` (or export it).
+# Compose interpolates `name:` from `.env` / the shell — not from `--env-file`.
+# Do not edit docker-compose.dev.yml. Default is qcentic-edge-template-dev.
+
 cp .env.docker.dev.example .env.docker.dev
 # fill in APP_KEY (see comment in the file)
-
-# Clones: set a unique COMPOSE_PROJECT_NAME (see `.env.docker.dev.example`).
-# Put it in a `.env` next to this file or export it — do not edit the YAML.
-# Default is qcentic-edge-template-dev.
 
 docker compose -f docker-compose.dev.yml --env-file .env.docker.dev up -d
 ```

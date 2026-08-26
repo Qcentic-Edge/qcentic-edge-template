@@ -1,4 +1,5 @@
 # Local env files (contain secrets — only *.example files are committed)
+.env
 .env.docker.dev
 .env.docker.prod
 .env.docker
