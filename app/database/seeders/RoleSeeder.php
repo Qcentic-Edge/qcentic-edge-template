@@ -17,5 +17,7 @@ class RoleSeeder extends Seeder
 
         Role::findOrCreate('super_admin');
         Role::findOrCreate('user');
+
+        ShieldPermissionMatrix::seed();
     }
 }

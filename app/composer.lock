@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "f76dede189acf2c653533c00a5d54ccd",
+    "content-hash": "872d3cfc6227ff94d288c65191fe4b43",
     "packages": [
         {
             "name": "anourvalar/eloquent-serialize",
@@ -4629,11 +4629,11 @@
         },
         {
             "name": "mamenein/filament-installer",
-            "version": "0.2.0",
+            "version": "0.3.0",
             "dist": {
                 "type": "path",
                 "url": "../packages/filament-installer",
-                "reference": "e50150b5f103aa072c514ed1c6061bc9400c095a"
+                "reference": "0865da7760457f46ca8ac8ac19af93cd78645735"
             },
             "require": {
                 "php": "^8.3",
