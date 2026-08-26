@@ -33,7 +33,7 @@ Filament gives an enormous amount of product for free: a full admin panel, forms
 
 [FrankenPHP](https://frankenphp.dev/) runs Laravel on a modern app server (worker mode, HTTP/2, HTTP/3) in a single process — no nginx + PHP-FPM pair to babysit. We package it as one multi-stage image:
 
-- **One service, not five.** App, queue worker, and scheduler all come from the same image. A small VPS or a single Magic Container runs the whole product.
+- **One image, multiple roles.** The HTTP app, `queue:work`, `reverb:start`, and `schedule:work` all come from the same FrankenPHP image as different `command:`s on **self-hosted** orchestrators (compose, k8s, VPS). The HTTP app can also run on a CaaS host (Magic Containers, Cloud Run, Cloudflare Containers); queue worker, Reverb, and scheduler are always-on processes that do not fit scale-to-zero / idle-sleep platforms and stay self-hosted.
 - **Debian base, deliberately.** The libSQL PHP client loads a glibc native library through FFI; no musl build exists, so Alpine is out. We sized the image around that constraint instead of fighting it.
 - **Hardened by default.** Non-root (`uid 1000`), read-only root filesystem, no capabilities, opcache with `validate_timestamps=0`. Dev dependencies and Node never reach the production image.
 
@@ -53,7 +53,7 @@ The result: clone, `docker compose up`, and you have an admin panel, OAuth2 API,
 | File | Purpose |
 |---|---|
 | `docker-compose.dev.yml` | Local development: bind-mounted source, Vite HMR on `:5173`, `artisan serve` on `:8090`, local libSQL server (`sqld`) on `:8181`, MinIO on `:9000` (API) / `:9001` (console), Reverb on `:8081`, hot reload for PHP + assets. Optional Redis via `--profile redis` |
-| `docker-compose.prod.yml` | Production: runs a published image (read-only, hardened), one-shot migrate, queue worker, scheduler, Reverb against a remote libSQL database (Bunny Database, Turso, or your own sqld). Optional bundled sqld via `--profile bundled-db`. Optional Redis via `--profile redis` |
+| `docker-compose.prod.yml` | **Self-hosted prod (VPS / k8s)**: runs a published image (read-only, hardened), one-shot migrate, queue worker, scheduler, Reverb against a remote libSQL database (Bunny Database, Turso, or your own sqld). This is the reference for self-hosted deployments — **not** a Magic Containers spec. Magic Containers runs only the HTTP app + installer (see below). Optional bundled sqld via `--profile bundled-db`. Optional Redis via `--profile redis` |
 | `docker-compose.build.yml` | Builds the production image locally (default `linux/amd64`). Nothing is pushed unless you explicitly run `build --push` with your own registry user |
 
 ## Quick start (dev)
@@ -120,7 +120,9 @@ cp .env.docker.prod.example .env.docker.prod
 docker compose -f docker-compose.prod.yml --env-file .env.docker.prod up -d
 ```
 
-The `migrate` service waits for the database to accept connections, runs `php artisan migrate --force` once, then the app, queue worker, and scheduler start. On Magic Containers prefer the web installer (`/install`) instead of the compose migrate sidecar — set `INSTALLER_ENABLED=true` and use explicit `DB_URL` / `DB_AUTH_TOKEN` (no Bunny-injected name fallbacks).
+The `migrate` service waits for the database to accept connections, runs `php artisan migrate --force` once, then the **self-hosted prod compose** starts the HTTP app, queue worker, scheduler, and Reverb. This is the VPS / k8s path.
+
+On **Magic Containers** (CaaS), the pod runs **only the HTTP app** with the first-run web installer (`/install`) instead of the compose migrate sidecar — set `INSTALLER_ENABLED=true` and use explicit `DB_URL` / `DB_AUTH_TOKEN` (no Bunny-injected name fallbacks). Magic Containers does **not** run the queue worker, Reverb, or scheduler in the pod; those are self-hosted always-on processes (compose / k8s / VPS) pointed at via env, or replaced by a clone-chosen driver (see [Queue and realtime drivers](#queue-and-realtime-drivers)).
 
 TLS is terminated upstream (bunny edge, Traefik, Caddy, nginx, …) — the container serves plain HTTP on `:8080`.
 
@@ -138,6 +140,8 @@ TLS is terminated upstream (bunny edge, Traefik, Caddy, nginx, …) — the cont
 
 While unlocked, the installer forces cookie sessions + array cache so `SESSION_DRIVER=database` does not 500 before the `sessions` table exists.
 
+The Magic Containers pod runs **only the HTTP app** (panel, API, installer). It does not run `queue:work`, `reverb:start`, or `schedule:work` — those are self-hosted always-on processes. See [Queue and realtime drivers](#queue-and-realtime-drivers) for how to point the CaaS app at a self-hosted VPS running the worker / Reverb, or switch drivers.
+
 ### Run with a bundled local sqld instead
 
 ```bash
@@ -148,11 +152,19 @@ Leave `DB_URL` empty; compose defaults it to the bundled sqld service.
 
 ## Reverb (realtime)
 
-Dev and prod compose run a Reverb sidecar (`php artisan reverb:start`) on host port `8081`. Fan-out defaults to **in-memory** — one Reverb process, no Redis.
+Dev and **self-hosted prod compose** (VPS / k8s) run a Reverb sidecar (`php artisan reverb:start`) on host port `8081`. Fan-out defaults to **in-memory** — one Reverb process, no Redis. This does **not** apply to Magic Containers / Cloud Run / Cloudflare Containers: those CaaS hosts run only the HTTP app, not Reverb.
 
 Laravel has **no database persister** for Reverb scale-out. Horizontal replicas need Redis pub/sub (`REVERB_SCALING_ENABLED`). The broadcast queue may stay on `QUEUE_CONNECTION=database`; pointing queues at Redis is optional and separate.
 
-To opt in:
+On a **CaaS HTTP-only deploy** (Magic Containers, Cloud Run, Cloudflare Containers) where Reverb is not in the pod, pick one:
+
+- Run Reverb on a self-hosted VPS / compose and point the CaaS app at it (`REVERB_HOST=<vps-host>`, `REVERB_PORT=8081`, `REVERB_SCHEME=wss` behind TLS).
+- Set `BROADCAST_CONNECTION=pusher` and use Pusher Cloud (Laravel broadcasting docs) — a clone option, not the template default.
+- Set `BROADCAST_CONNECTION=log` to disable realtime (events are written to the log, nothing is pushed).
+
+See [Queue and realtime drivers](#queue-and-realtime-drivers) for the full env table.
+
+To opt in to Redis scaling on self-hosted compose:
 
 ```bash
 # 1. Uncomment REDIS_URL, REVERB_REDIS, and REVERB_SCALING_ENABLED=true in .env.docker.dev
@@ -161,6 +173,21 @@ docker compose -f docker-compose.dev.yml --env-file .env.docker.dev --profile re
 ```
 
 Same profile name on prod: `--profile redis`. Leave those env vars empty (the default) and omit the profile to keep the in-memory server. `composer test` does not start or require Redis.
+
+## Queue and realtime drivers
+
+The template ships self-hosted compose for dev and for self-hosted prod (VPS / k8s). CaaS (Magic Containers, Cloud Run, Cloudflare Containers) is a fine host for the **HTTP app only**; `queue:work` and `reverb:start` are always-on processes that do not fit scale-to-zero / idle-sleep platforms. On a CaaS HTTP-only deploy, either run queue + Reverb on a self-hosted VPS / compose and point env at it, or switch drivers per the table below (Laravel docs). Cloudflare Queues is a separate product, not a Laravel queue driver this template ships.
+
+| Concern | Env | Default | When to change | Docs |
+|---------|-----|---------|----------------|------|
+| Background jobs | `QUEUE_CONNECTION` | `database` (libSQL) | `redis` / `sqs` for higher throughput | https://laravel.com/docs/queues |
+| Realtime server | `BROADCAST_CONNECTION` | `reverb` (self-hosted container) | `pusher` (Pusher Cloud), `log` (off), or `reverb` pointing at a remote Reverb host | https://laravel.com/docs/broadcasting |
+| Reverb fan-out (multi-replica self-host) | `REVERB_SCALING_ENABLED` + `REDIS_URL` | off (in-memory) | on only with Redis | https://laravel.com/docs/reverb |
+| Redis for jobs / session / cache | `REDIS_URL` + config | off | optional; Laravel / Reverb docs | https://laravel.com/docs/redis |
+
+### Hybrid: CaaS HTTP + self-hosted daemons
+
+Panel and API run on Magic Containers / Cloud Run / Cloudflare (stateless HTTP, autoscaled, scale-to-zero between requests). `queue:work` and `reverb:start` run on a small self-hosted VPS or compose stack that stays up. The CaaS app env points at that VPS: `REVERB_HOST=<vps-host>` (with `REVERB_PORT` / `REVERB_SCHEME`), and `QUEUE_CONNECTION` set to a connection the worker on the VPS actually drains. `QUEUE_CONNECTION=database` against Bunny DB will *queue* rows from the CaaS pod without a worker container, but jobs only run when the VPS worker polls the same DB — for real background processing, run the worker on the VPS. Do **not** put `queue:work` or `reverb:start` in the CaaS HTTP pod.
 
 ## Object storage (MinIO)
 
