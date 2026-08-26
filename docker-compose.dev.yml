@@ -1,4 +1,4 @@
-name: qcentic-edge-template-dev
+name: ${COMPOSE_PROJECT_NAME:-qcentic-edge-template-dev}
 
 x-app: &app
   build:
@@ -16,7 +16,7 @@ x-app: &app
     - ./app:/app
     - ./packages/filament-media-drive:/packages/filament-media-drive
     - ./packages/filament-installer:/packages/filament-installer
-    - /app/vendor
+    - composer_vendor:/app/vendor
     - /app/node_modules
 
 services:
@@ -52,7 +52,7 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
-      start_period: 10s
+      start_period: 120s
     depends_on:
       migrate:
         condition: service_started
@@ -165,3 +165,4 @@ volumes:
   db_data:
   npm_cache:
   minio_data:
+  composer_vendor:

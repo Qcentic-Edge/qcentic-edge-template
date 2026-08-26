@@ -62,8 +62,24 @@ The result: clone, `docker compose up`, and you have an admin panel, OAuth2 API,
 cp .env.docker.dev.example .env.docker.dev
 # fill in APP_KEY (see comment in the file)
 
+# Clones: set a unique COMPOSE_PROJECT_NAME (see `.env.docker.dev.example`).
+# Put it in a `.env` next to this file or export it — do not edit the YAML.
+# Default is qcentic-edge-template-dev.
+
 docker compose -f docker-compose.dev.yml --env-file .env.docker.dev up -d
 ```
+
+First `up` bind-mounts `./app` and uses named volume `composer_vendor` for `/app/vendor`. The dev entrypoint runs `composer install` when `/app/vendor/autoload.php` is missing — no manual `compose exec … composer install`. `node_modules` stays an anonymous volume.
+
+To wipe stale PHP deps (lockfile changed, missing classes after an image rebuild):
+
+```bash
+docker compose -f docker-compose.dev.yml --env-file .env.docker.dev down
+docker volume rm "${COMPOSE_PROJECT_NAME:-qcentic-edge-template-dev}_composer_vendor"
+docker compose -f docker-compose.dev.yml --env-file .env.docker.dev up -d --build
+```
+
+The next start runs `composer install` into the empty volume again.
 
 - App: http://localhost:8090
 - Admin: http://localhost:8090/admin/login
