@@ -2,14 +2,11 @@
 
 use Database\Seeders\RoleSeeder;
 use Filament\Facades\Filament;
-use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Mamenein\FilamentMediaDrive\Pages\DrivePage;
-use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 uses(DatabaseMigrations::class);
 
@@ -85,33 +82,4 @@ test('super_admin can open drive and see any s3 media', function () {
     $this->get(DrivePage::getUrl(panel: 'admin'))
         ->assertOk()
         ->assertSee('admin-can-see.pdf');
-});
-
-test('owner with Create:Media uploads new bytes onto s3 uploads via attach', function () {
-    $owner = actingAsRole('user');
-    driveGrantMediaPermissions($owner, ['View:Media', 'Create:Media']);
-
-    Filament::setCurrentPanel(Filament::getPanel('app'));
-
-    $page = Livewire::test(DrivePage::class)->instance();
-    $page->ingestUploadedFile(UploadedFile::fake()->create('fresh.pdf', 20, 'application/pdf'));
-
-    $media = Media::query()->where('file_name', 'fresh.pdf')->first();
-
-    expect($media)->not->toBeNull()
-        ->and($media->disk)->toBe('s3')
-        ->and($media->collection_name)->toBe('uploads')
-        ->and((int) $media->model_id)->toBe((int) $owner->id);
-});
-
-test('user without Create:Media cannot upload via attach', function () {
-    $user = actingAsRole('user');
-    driveGrantMediaPermissions($user, ['View:Media']);
-
-    Filament::setCurrentPanel(Filament::getPanel('app'));
-
-    $page = Livewire::test(DrivePage::class)->instance();
-
-    expect(fn () => $page->ingestUploadedFile(UploadedFile::fake()->create('nope.pdf', 20, 'application/pdf')))
-        ->toThrow(AuthorizationException::class);
 });

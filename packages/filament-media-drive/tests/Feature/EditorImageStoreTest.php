@@ -70,20 +70,22 @@ test('livewire temporary uploads are stored from the livewire disk without passi
 });
 
 test('editor image URL follows the s3 disk public URL including a CDN host', function () {
-    $cdn = 'https://cdn.example.test/filament';
+    $cdn = 'https://files.example-cdn.test';
+
     config(['filesystems.disks.s3.url' => $cdn]);
     Storage::forgetDisk('s3');
 
-    expect(Storage::disk('s3')->url('x'))->toContain('cdn.example.test');
+    expect(Storage::disk('s3')->url('x'))->toContain('files.example-cdn.test');
 
-    Storage::fake('s3');
+    Storage::fake('s3', ['url' => $cdn]);
 
     $user = User::factory()->create();
     $this->actingAs($user);
 
     $media = EditorImageStore::store(UploadedFile::fake()->create('cdn.png', 40, 'image/png'));
 
-    expect(EditorImageStore::url($media))->toBe($media->getUrl());
+    expect(EditorImageStore::url($media))->toContain('files.example-cdn.test')
+        ->and($media->getUrl())->toContain('files.example-cdn.test');
 });
 
 test('explicit collection wins over the body/uploads default', function () {

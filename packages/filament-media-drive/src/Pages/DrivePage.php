@@ -76,6 +76,10 @@ class DrivePage extends Page
 
     public function attach(): void
     {
+        if (auth()->user() === null) {
+            abort(403);
+        }
+
         $state = $this->content->getState();
         $raw = $state['file'] ?? $this->data['file'] ?? null;
 
