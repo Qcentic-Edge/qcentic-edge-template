@@ -7,3 +7,88 @@
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
 }
+
+@layer components {
+    /* Neutral, overridable content styling. Clones render markdown inside `.site-prose`
+       and get prose + code + table styling out of the box. Override or replace per product. */
+    .site-prose {
+        @apply text-sm leading-7 text-zinc-700 dark:text-zinc-300;
+    }
+
+    .site-prose :where(h1) {
+        @apply mb-4 text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100;
+    }
+
+    .site-prose :where(h2) {
+        @apply mt-8 mb-3 text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100;
+    }
+
+    .site-prose :where(h3) {
+        @apply mt-6 mb-2 text-lg font-semibold text-zinc-900 dark:text-zinc-100;
+    }
+
+    .site-prose :where(p) {
+        @apply mb-4;
+    }
+
+    .site-prose :where(ul) {
+        @apply mb-4 list-disc space-y-1 pl-5;
+    }
+
+    .site-prose :where(ol) {
+        @apply mb-4 list-decimal space-y-1 pl-5;
+    }
+
+    .site-prose :where(a) {
+        @apply font-medium text-zinc-900 underline decoration-zinc-400 underline-offset-2 hover:decoration-zinc-900 dark:text-zinc-100 dark:decoration-zinc-600 dark:hover:decoration-zinc-100;
+    }
+
+    .site-prose :where(code) {
+        @apply rounded bg-zinc-100 px-1 py-0.5 font-mono text-[0.8125rem] text-zinc-800 dark:bg-zinc-800/60 dark:text-zinc-200;
+    }
+
+    .site-prose :where(pre) {
+        @apply mb-0 overflow-x-auto rounded-none bg-transparent p-4 text-[0.8125rem] leading-6 text-zinc-100;
+    }
+
+    .site-prose :where(pre code) {
+        @apply bg-transparent p-0 text-inherit ring-0;
+    }
+
+    .site-code {
+        @apply relative mb-4 overflow-hidden rounded-xl bg-zinc-950 ring-1 ring-zinc-800;
+    }
+
+    .site-code__copy {
+        @apply absolute top-2 right-2 rounded-md bg-white/10 px-2 py-1 text-xs font-medium text-zinc-100 opacity-0 transition hover:bg-white/15 focus:opacity-100 focus:outline-none group-hover:opacity-100;
+    }
+
+    .site-code:hover .site-code__copy,
+    .site-code:focus-within .site-code__copy {
+        @apply opacity-100;
+    }
+
+    .site-prose :where(table) {
+        @apply mb-4 w-full overflow-x-auto rounded-xl ring-1 ring-zinc-200 text-sm dark:ring-zinc-800;
+    }
+
+    .site-prose :where(thead th) {
+        @apply bg-zinc-100 px-3 py-2 text-left font-semibold text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100;
+    }
+
+    .site-prose :where(tbody td) {
+        @apply px-3 py-2 align-top text-zinc-600 border-t border-zinc-200 dark:text-zinc-400 dark:border-zinc-800;
+    }
+
+    .site-prose :where(blockquote) {
+        @apply mb-4 border-l-2 border-zinc-300 pl-4 text-zinc-600 italic dark:border-zinc-700 dark:text-zinc-400;
+    }
+
+    .site-prose :where(strong) {
+        @apply font-semibold text-zinc-900 dark:text-zinc-100;
+    }
+
+    .site-prose :where(hr) {
+        @apply my-8 border-zinc-200 dark:border-zinc-800;
+    }
+}
