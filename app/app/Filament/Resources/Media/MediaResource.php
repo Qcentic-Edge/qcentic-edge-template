@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Media;
 
+use App\Filament\Resources\Media\Pages\CreateMedia;
 use App\Filament\Resources\Media\Pages\ListMedia;
 use App\Filament\Resources\Media\Pages\ViewMedia;
 use BackedEnum;
@@ -9,12 +10,14 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\ViewAction;
+use Filament\Forms\Components\FileUpload;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\Gate;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 class MediaResource extends Resource
@@ -30,6 +33,16 @@ class MediaResource extends Resource
     protected static ?string $modelLabel = 'media';
 
     protected static ?string $pluralModelLabel = 'media';
+
+    public static function form(Schema $schema): Schema
+    {
+        return $schema
+            ->components([
+                FileUpload::make('file')
+                    ->required()
+                    ->storeFiles(false),
+            ]);
+    }
 
     public static function infolist(Schema $schema): Schema
     {
@@ -68,13 +81,16 @@ class MediaResource extends Resource
 
     public static function canCreate(): bool
     {
-        return false;
+        $user = auth()->user();
+
+        return $user !== null && Gate::forUser($user)->allows('create', Media::class);
     }
 
     public static function getPages(): array
     {
         return [
             'index' => ListMedia::route('/'),
+            'create' => CreateMedia::route('/create'),
             'view' => ViewMedia::route('/{record}'),
         ];
     }
