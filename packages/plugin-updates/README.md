@@ -1,18 +1,73 @@
-# plugin-updates
+# Plugin Updates
 
-`qcentic-edge/plugin-updates` gives every first-party package the same answer to one
-question: has the code moved ahead of the database, and what does it owe?
+![Laravel 12.x | 13.x](https://img.shields.io/badge/Laravel-12.x%20%7C%2013.x-FF2D20?style=flat-square)
+![Status](https://img.shields.io/badge/status-private%2Funreleased-lightgrey?style=flat-square)
+
+`qcentic-edge/plugin-updates` gives every first-party package the same answer to one question: has the code moved ahead of the database, and what does it owe?
+
+> [!NOTE]
+> First-party Qcentic library (ADR 0005). Unpublished — license (free vs paid) is still an open decision. This is a library, not a panel plugin: it is never installed directly, and nothing here renders.
 
 The model is WordPress'. A package keeps its own version, compares it against the
 version of the code that is deployed, and runs its own migrations and seeder. Nothing
 central runs a package's schema work, and no package depends on the installer to
 finish its own upgrade.
 
-This is a library, not a panel plugin. It drops the `filament-` prefix, ships no
-Filament page, resource or navigation item, and is never installed directly — it
-arrives transitively as a dependency of the packages that use it.
+## Features
 
-## Registering a package
+- `UpdatablePackage::make(...)` — one fluent call per package: name, title, manifest, and optionally migration path, seeder and tables
+- `PluginUpdates::packages()` — every package that has declared itself, for anything that reports on them
+- `PluginUpdates::ledger()` — the version each package's database is at, in a table the library ensures itself with no migration file
+- `codeVersion()` — the deployed version via Composer's installed-versions API, correct for path repositories
+- No Filament page, resource or navigation item, and no dependency on Filament at all
+
+## Compatibility
+
+| Package | Laravel | PHP |
+|---|---|---|
+| 0.x (unreleased) | 12.x, 13.x | 8.3+ |
+
+## Installation
+
+Nobody installs this directly. It arrives transitively, as a dependency of the packages
+that use it — so a package requires it in its own `composer.json`:
+
+```json
+{
+    "require": {
+        "qcentic-edge/plugin-updates": "*"
+    }
+}
+```
+
+The application still needs to be able to resolve the name. Every first-party package is
+consumed as a Composer path repository on this workstation, and a path package's own
+requirements are resolved against the application's repositories, not its own — so the
+site adds a path repository for the library alongside the ones for its plugins, in
+`app/composer.json`:
+
+```json
+{
+    "repositories": [
+        {
+            "type": "path",
+            "url": "../packages/plugin-updates"
+        }
+    ]
+}
+```
+
+The library is synced into each site's `packages/` directory like the plugins are. The
+repository entry carries no matching `require` line in the site: nothing is installed
+until a package declares the dependency, at which point Composer resolves it from that
+path.
+
+Laravel's package discovery registers `PluginUpdatesServiceProvider`, so there is nothing
+to add to `config/app.php` and no panel wiring of any kind.
+
+## Usage
+
+### Registering a package
 
 One call, from the package's own service provider:
 
@@ -30,15 +85,20 @@ PluginUpdates::register(
 );
 ```
 
-Package name, title and manifest are what every package declares. The migration path,
-the seeder and the tables are optional: a package may own no schema, no seed data or
-no tables at all, and the library refuses to guess at any of them. Declaring tables is
-what lets the operator see row counts without the package writing reporting code.
+Package name and manifest are what every package declares; the title defaults to the
+package name. Registering without a manifest throws `IncompleteDeclaration` there and
+then, naming the package, because the library refuses to guess where a package's
+releases are described.
 
-Registering the same package name twice replaces the declaration rather than listing
-the package twice.
+The migration path, the seeder and the tables are optional: a package may own no schema,
+no seed data or no tables at all, and the library refuses to guess at any of those
+either. Declaring tables is what lets the operator see row counts without the package
+writing reporting code.
 
-## The manifest
+Registering the same package name twice replaces the declaration rather than listing the
+package twice.
+
+### The manifest
 
 One row per release, seeds only:
 
@@ -62,7 +122,7 @@ Old migration files are history. They are never edited and never deleted, becaus
 database several versions behind can only climb if every historical step is still on
 disk in the current release.
 
-## The version ledger
+### The version ledger
 
 ```php
 PluginUpdates::ledger()->record('qcentic-edge/filament-seo', '0.6.0');
@@ -70,15 +130,18 @@ PluginUpdates::ledger()->storedVersion('qcentic-edge/filament-seo'); // '0.6.0'
 ```
 
 A package the ledger has never heard of reads back as `null`, never as an assumed
-version.
+version — and so does every package on a database that has never seen the ledger table.
 
 The ledger's table, `plugin_update_versions`, ships as no migration file of its own
 and cannot: it has to exist before the machinery that runs migrations can report
 anything, and on a stateless edge host there is no shell to create it with. It is
-ensured idempotently behind a table-existence check on first use, which behaves
+ensured idempotently behind a table-existence check on the first write, which behaves
 identically whether the installer is present, absent, or added later.
 
-## Code version
+Reading never creates it. Several replicas serve the panel and one of them may be on a
+read-only connection, where DDL on a read path would throw where a null will do.
+
+### Code version
 
 The deployed version comes from Composer's installed-versions API, which resolves
 path repositories correctly — a path package reports the version its own
@@ -88,9 +151,25 @@ path repositories correctly — a path package reports the version its own
 PluginUpdates::package('qcentic-edge/filament-seo')->codeVersion();
 ```
 
-## Tests
+## Testing
 
 ```bash
 composer install
 composer test
 ```
+
+Pest 4 + Orchestra Testbench, self-contained in this repo (no app needed). The library
+depends on nothing but the framework, so the test app boots with nothing but the
+framework and the library's own provider.
+
+## Changelog
+
+No tagged releases yet.
+
+## Contributing
+
+Private first-party library — internal contributors only, for now.
+
+## License
+
+Unpublished. All rights reserved until the free-vs-paid decision lands (ADR 0005).

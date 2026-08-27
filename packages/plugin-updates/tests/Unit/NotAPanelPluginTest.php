@@ -6,21 +6,8 @@
  * directly — it arrives transitively as a dependency of the packages that use
  * it. These assertions are what stops that drifting back.
  */
-function librarySource(): string
-{
-    $source = '';
-
-    foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator(__DIR__.'/../../src')) as $file) {
-        if ($file->isFile() && $file->getExtension() === 'php') {
-            $source .= file_get_contents($file->getPathname());
-        }
-    }
-
-    return $source;
-}
-
 it('requires no Filament package', function () {
-    $composer = json_decode(file_get_contents(__DIR__.'/../../composer.json'), true);
+    $composer = libraryComposer();
 
     $filament = array_filter(
         array_keys($composer['require'] + $composer['require-dev']),
@@ -37,6 +24,6 @@ it('registers no Filament page, resource or navigation item', function () {
 });
 
 it('ships no views or routes to register', function () {
-    expect(is_dir(__DIR__.'/../../resources'))->toBeFalse()
-        ->and(is_dir(__DIR__.'/../../routes'))->toBeFalse();
+    expect(is_dir(libraryPath('resources')))->toBeFalse()
+        ->and(is_dir(libraryPath('routes')))->toBeFalse();
 });

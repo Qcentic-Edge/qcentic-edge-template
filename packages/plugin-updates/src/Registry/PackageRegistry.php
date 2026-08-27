@@ -16,9 +16,18 @@ final class PackageRegistry
     /** @var array<string, UpdatablePackage> */
     private array $packages = [];
 
+    /**
+     * @throws IncompleteDeclaration when a package declares no manifest, so a
+     *                               half-declared package fails at the moment
+     *                               its provider boots rather than later.
+     */
     public function add(UpdatablePackage ...$packages): self
     {
         foreach ($packages as $package) {
+            if (! $package->hasManifest()) {
+                throw IncompleteDeclaration::manifest($package->name());
+            }
+
             $this->packages[$package->name()] = $package;
         }
 
@@ -34,15 +43,5 @@ final class PackageRegistry
     public function get(string $name): ?UpdatablePackage
     {
         return $this->packages[$name] ?? null;
-    }
-
-    public function has(string $name): bool
-    {
-        return isset($this->packages[$name]);
-    }
-
-    public function isEmpty(): bool
-    {
-        return $this->packages === [];
     }
 }

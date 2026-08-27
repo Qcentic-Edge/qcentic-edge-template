@@ -16,6 +16,7 @@ x-app: &app
     - ./app:/app
     - ./packages/filament-media-drive:/packages/filament-media-drive
     - ./packages/filament-installer:/packages/filament-installer
+    - ./packages/plugin-updates:/packages/plugin-updates
     - composer_vendor:/app/vendor
     - /app/node_modules
 

@@ -7,7 +7,7 @@ prefix, no Filament page, never installed directly, arrives transitively.
 
 ## Files
 - `composer.json` — `qcentic-edge/plugin-updates`
-- `README.md` — registering a package, the manifest, the ledger
+- `README.md` — installation as a path repository, registering a package, the manifest, the ledger
 - `phpunit.xml` — Pest suite (Feature + Unit)
 
 ## Subdirectories

@@ -18,15 +18,17 @@ use QcenticEdge\PluginUpdates\Support\CodeVersion;
  *             ->tables(['seo_meta', 'seo_settings']),
  *     );
  *
- * Name, title and manifest are what every package has. Migration path, seeder
- * and tables are optional because a package may own no schema, no seed data,
- * or no tables at all — and the library refuses to guess at any of them.
+ * Name and manifest are what every package has, and registering without a
+ * manifest is refused on the spot rather than left to fail later. The title
+ * defaults to the package name. Migration path, seeder and tables are optional
+ * because a package may own no schema, no seed data, or no tables at all — and
+ * the library refuses to guess at any of them.
  */
 final class UpdatablePackage
 {
     private string $title;
 
-    private string $manifest;
+    private ?string $manifest = null;
 
     private ?string $migrations = null;
 
@@ -109,9 +111,15 @@ final class UpdatablePackage
         return $this->title;
     }
 
+    /** Whether the package declared a manifest at all. Registration insists it did. */
+    public function hasManifest(): bool
+    {
+        return $this->manifest !== null;
+    }
+
     public function manifestPath(): string
     {
-        return $this->manifest;
+        return $this->manifest ?? throw IncompleteDeclaration::manifest($this->name);
     }
 
     public function migrationPath(): ?string

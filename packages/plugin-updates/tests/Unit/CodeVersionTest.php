@@ -14,7 +14,7 @@ it('resolves the version a package declares in its own composer.json', function 
     // a path package's version is the one its composer.json declares. Reading
     // this library's own version proves that route resolves.
     expect(CodeVersion::for('qcentic-edge/plugin-updates'))
-        ->toBe(json_decode(file_get_contents(__DIR__.'/../../composer.json'), true)['version']);
+        ->toBe(libraryComposer()['version']);
 });
 
 it('reports a package that is not installed as absent', function () {

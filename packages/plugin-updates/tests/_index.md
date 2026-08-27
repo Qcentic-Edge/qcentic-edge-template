@@ -4,7 +4,7 @@ Pest 4 + Orchestra Testbench. The library depends on nothing but the framework, 
 the test app boots with nothing but the framework and the library's own provider.
 
 ## Files
-- `Pest.php` — Feature/Unit use TestCase; `registerFixturePackage()` declares the fixture the way a plugin's provider does
+- `Pest.php` — Feature/Unit use TestCase, Feature adds RefreshDatabase; shared helpers: `registerFixturePackage()` declares the fixture the way a plugin's provider does, plus `libraryPath()`, `libraryComposer()` and `librarySource()`
 - `TestCase.php` — Testbench with the library provider only
 
 ## Subdirectories

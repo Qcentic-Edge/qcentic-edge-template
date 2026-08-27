@@ -1,6 +1,7 @@
 <?php
 
 use QcenticEdge\PluginUpdates\PluginUpdates;
+use QcenticEdge\PluginUpdates\Registry\IncompleteDeclaration;
 use QcenticEdge\PluginUpdates\Registry\UpdatablePackage;
 use QcenticEdge\PluginUpdates\Tests\Fixtures\FixtureSeeder;
 
@@ -70,4 +71,25 @@ it('keeps the latest declaration when a package registers twice', function () {
 
 it('reports an unregistered package as absent', function () {
     expect(PluginUpdates::package('qcentic-edge/never-registered'))->toBeNull();
+});
+
+it('refuses a package that declares no manifest', function () {
+    expect(fn () => PluginUpdates::register(
+        UpdatablePackage::make('qcentic-edge/fixture-manifestless')->title('Fixture Manifestless'),
+    ))->toThrow(IncompleteDeclaration::class, 'qcentic-edge/fixture-manifestless');
+});
+
+it('leaves a package that declares no manifest out of the registry', function () {
+    try {
+        PluginUpdates::register(UpdatablePackage::make('qcentic-edge/fixture-manifestless'));
+    } catch (IncompleteDeclaration) {
+        //
+    }
+
+    expect(PluginUpdates::package('qcentic-edge/fixture-manifestless'))->toBeNull();
+});
+
+it('names the missing declaration when a manifest path is asked for anyway', function () {
+    expect(fn () => UpdatablePackage::make('qcentic-edge/fixture-manifestless')->manifestPath())
+        ->toThrow(IncompleteDeclaration::class, 'manifest');
 });
