@@ -8,7 +8,7 @@ use QcenticEdge\PluginUpdates\PluginUpdates;
 it('creates its table on first use', function () {
     expect(Schema::hasTable(VersionLedger::TABLE))->toBeFalse();
 
-    PluginUpdates::ledger()->ensureTable();
+    versionLedger()->ensureTable();
 
     expect(Schema::hasTable(VersionLedger::TABLE))->toBeTrue();
 });
@@ -16,13 +16,13 @@ it('creates its table on first use', function () {
 it('creates its table on a first write that never asked for it', function () {
     expect(Schema::hasTable(VersionLedger::TABLE))->toBeFalse();
 
-    PluginUpdates::ledger()->record('qcentic-edge/fixture-plugin', '0.3.0');
+    versionLedger()->record('qcentic-edge/fixture-plugin', '0.3.0');
 
     expect(Schema::hasTable(VersionLedger::TABLE))->toBeTrue();
 });
 
 it('does not recreate the table on a second call', function () {
-    $ledger = PluginUpdates::ledger();
+    $ledger = versionLedger();
 
     $ledger->ensureTable();
     $ledger->record('qcentic-edge/fixture-plugin', '0.3.0');
@@ -38,22 +38,22 @@ it('ships no migration file for its own table', function () {
 });
 
 it('writes a stored version and reads it back', function () {
-    PluginUpdates::ledger()->record('qcentic-edge/fixture-plugin', '0.4.0');
+    versionLedger()->record('qcentic-edge/fixture-plugin', '0.4.0');
 
-    expect(PluginUpdates::ledger()->storedVersion('qcentic-edge/fixture-plugin'))
+    expect(versionLedger()->storedVersion('qcentic-edge/fixture-plugin'))
         ->toBe('0.4.0');
 });
 
 it('reads back a package with no stored version as absent', function () {
-    PluginUpdates::ledger()->record('qcentic-edge/fixture-other', '0.4.0');
+    versionLedger()->record('qcentic-edge/fixture-other', '0.4.0');
 
-    expect(PluginUpdates::ledger()->storedVersion('qcentic-edge/fixture-plugin'))
+    expect(versionLedger()->storedVersion('qcentic-edge/fixture-plugin'))
         ->toBeNull();
 });
 
 it('reads back as absent on a database that has never seen the ledger', function () {
     expect(Schema::hasTable(VersionLedger::TABLE))->toBeFalse()
-        ->and(PluginUpdates::ledger()->storedVersion('qcentic-edge/fixture-plugin'))
+        ->and(versionLedger()->storedVersion('qcentic-edge/fixture-plugin'))
         ->toBeNull();
 });
 
@@ -61,13 +61,13 @@ it('creates nothing when asked what version a package is at', function () {
     // Reading is a read. Several replicas serve the panel and one of them may
     // be on a read-only connection, where DDL on a read path throws where a
     // null would have done.
-    PluginUpdates::ledger()->storedVersion('qcentic-edge/fixture-plugin');
+    versionLedger()->storedVersion('qcentic-edge/fixture-plugin');
 
     expect(Schema::hasTable(VersionLedger::TABLE))->toBeFalse();
 });
 
 it('advances a stored version rather than adding a second row', function () {
-    $ledger = PluginUpdates::ledger();
+    $ledger = versionLedger();
 
     $ledger->record('qcentic-edge/fixture-plugin', '0.4.0');
     $ledger->record('qcentic-edge/fixture-plugin', '0.10.0');
@@ -77,7 +77,7 @@ it('advances a stored version rather than adding a second row', function () {
 });
 
 it('leaves created_at alone when a stored version advances', function () {
-    $ledger = PluginUpdates::ledger();
+    $ledger = versionLedger();
 
     $ledger->record('qcentic-edge/fixture-plugin', '0.4.0');
 
@@ -100,7 +100,7 @@ it('leaves created_at alone when a stored version advances', function () {
 });
 
 it('keeps each package on its own row', function () {
-    $ledger = PluginUpdates::ledger();
+    $ledger = versionLedger();
 
     $ledger->record('qcentic-edge/fixture-one', '0.1.0');
     $ledger->record('qcentic-edge/fixture-two', '0.2.0');

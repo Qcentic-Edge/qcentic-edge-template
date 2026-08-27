@@ -11,5 +11,5 @@
  * must not quietly turn this fixture into a version gap.
  */
 return [
-    libraryComposer()['version'] => ['seed' => false],
+    libraryVersion() => ['seed' => false],
 ];

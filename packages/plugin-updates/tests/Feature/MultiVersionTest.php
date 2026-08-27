@@ -12,10 +12,10 @@ use QcenticEdge\PluginUpdates\Registry\UpdatablePackage;
  * earlier release would be, and asks the report what it owes.
  */
 it('reports both the gap and both unapplied files two versions behind', function () {
-    placeHistoryAt('0.3.0');
+    placeAt(HISTORY_FIXTURE, '0.3.0');
     registerHistoryPackage();
 
-    $status = historyStatus();
+    $status = statusOf(HISTORY_PACKAGE);
 
     expect($status->storedVersion)->toBe('0.3.0')
         ->and($status->pendingVersions)->toBe(['0.4.0', '0.5.0'])
@@ -31,10 +31,10 @@ it('reports exactly the unapplied files four versions behind, skipping those in 
     // Four releases pending. Only the first and the last of them added schema;
     // 0.3.0 and 0.4.0 added none. The file 0.1.0 shipped is already applied and
     // must not be reported.
-    placeHistoryAt('0.1.0');
+    placeAt(HISTORY_FIXTURE, '0.1.0');
     registerHistoryPackage();
 
-    $status = historyStatus();
+    $status = statusOf(HISTORY_PACKAGE);
 
     expect($status->pendingVersions)->toBe(['0.2.0', '0.3.0', '0.4.0', '0.5.0'])
         ->and($status->versionsBehind())->toBe(4)
@@ -50,20 +50,20 @@ it('reports exactly the unapplied files four versions behind, skipping those in 
 it('owes a seed asked for by a skipped middle release even though the newest declines', function () {
     // 0.3.0 owes a seed; 0.4.0 and 0.5.0 do not. Reading only the newest entry
     // is the bug this design exists to prevent.
-    placeHistoryAt('0.1.0');
+    placeAt(HISTORY_FIXTURE, '0.1.0');
     registerHistoryPackage();
 
-    $status = historyStatus();
+    $status = statusOf(HISTORY_PACKAGE);
 
     expect($status->seedingVersions)->toBe(['0.3.0'])
         ->and($status->seedOwed())->toBeTrue();
 });
 
 it('owes no seed across a gap that contains no seed obligation', function () {
-    placeHistoryAt('0.3.0');
+    placeAt(HISTORY_FIXTURE, '0.3.0');
     registerHistoryPackage();
 
-    $status = historyStatus();
+    $status = statusOf(HISTORY_PACKAGE);
 
     expect($status->pendingVersions)->toBe(['0.4.0', '0.5.0'])
         ->and($status->seedingVersions)->toBe([])
@@ -71,11 +71,11 @@ it('owes no seed across a gap that contains no seed obligation', function () {
 });
 
 it('owes nothing across a version gap when the path is applied and no release wants a seed', function () {
-    applyHistoryThrough('0.5.0');
-    PluginUpdates::ledger()->record(HISTORY_PACKAGE, '0.3.0');
+    applyThrough(HISTORY_FIXTURE, '0.5.0');
+    versionLedger()->record(HISTORY_PACKAGE, '0.3.0');
     registerHistoryPackage();
 
-    $status = historyStatus();
+    $status = statusOf(HISTORY_PACKAGE);
 
     expect($status->versionsBehind())->toBe(2)
         ->and($status->schemaOwed())->toBeFalse()
@@ -87,7 +87,7 @@ it('owes nothing across a version gap when the path is applied and no release wa
 it('treats a package with no stored version as being at the oldest release', function () {
     registerHistoryPackage();
 
-    $status = historyStatus();
+    $status = statusOf(HISTORY_PACKAGE);
 
     expect($status->storedVersion)->toBeNull()
         ->and($status->pendingVersions)->toBe(['0.1.0', '0.2.0', '0.3.0', '0.4.0', '0.5.0'])
@@ -101,7 +101,7 @@ it('reports a manifest listed out of order in version order', function () {
     // and the gap the report hands to the page are in release order, with
     // 0.10.0 above 0.9.0 rather than below it.
     registerOutOfOrderPackage();
-    PluginUpdates::ledger()->record(OUT_OF_ORDER_PACKAGE, '0.2.0');
+    versionLedger()->record(OUT_OF_ORDER_PACKAGE, '0.2.0');
 
     $status = PluginUpdates::report()->status(OUT_OF_ORDER_PACKAGE);
 
@@ -112,7 +112,7 @@ it('reports a manifest listed out of order in version order', function () {
 it('collapses a multi-version gap into a single reported row', function () {
     // Story 33: one row and one click regardless of how many releases were
     // skipped, not one row per pending version.
-    placeHistoryAt('0.1.0');
+    placeAt(HISTORY_FIXTURE, '0.1.0');
     registerHistoryPackage();
 
     expect(PluginUpdates::report()->owing())->toHaveCount(1)

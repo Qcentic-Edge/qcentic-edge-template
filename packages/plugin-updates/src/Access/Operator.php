@@ -31,8 +31,17 @@ final class Operator
         return true;
     }
 
-    /** Whoever is signed in right now, if anyone. */
-    public static function signedIn(): bool
+    /**
+     * Whether an operator is at the keyboard right now: somebody is signed in
+     * and `check()` says they are one.
+     *
+     * Named for how it reads negated, which is how the notice asks it:
+     * `! Operator::present()` is "no operator is here, render nothing". The
+     * previous name answered "is anyone signed in", and negated it read as the
+     * wrong question entirely — a signed-in user who is not a super admin is
+     * not an operator, and the notice must stay quiet for them too.
+     */
+    public static function present(): bool
     {
         return self::check(auth()->user());
     }

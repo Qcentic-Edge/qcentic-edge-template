@@ -17,11 +17,10 @@ finish its own upgrade.
 
 - `UpdatablePackage::make(...)` — one fluent call per package: name, title, manifest, and optionally migration path, seeder and tables
 - `PluginUpdates::packages()` — every package that has declared itself, for anything that reports on them
-- `PluginUpdates::ledger()` — the version each package's database is at, in a table the library ensures itself with no migration file
-- `PluginUpdates::report()` — the one reading seam: what every registered package owes, right now
+- `PluginUpdates::report()` — the one reading seam: what every registered package owes, right now, including where its migrations and seeder are
 - `PluginUpdates::run(...)` — one package catches up: its unapplied migrations, its seeder if a pending release owes one, then its stored version. Never on boot
 - `codeVersion()` — the deployed version via Composer's installed-versions API, correct for path repositories
-- A topbar notice, so a package on a site with no installer still tells the operator its database is behind — suppressed where the installer's Updates page is present, and skipped entirely in a host with no Livewire to render it
+- A topbar notice, so a package on a site with no installer still tells the operator its database is behind — suppressed where the installer's Updates page is present, and skipped entirely in a host without both Livewire and a Filament panel to render it in
 - No Filament page, resource or navigation item
 
 ## Compatibility
@@ -183,16 +182,26 @@ A `PackageStatus` is a result object, read once and answered in full:
 | `versionsBehind()` | `int` | how many releases the database is catching up |
 | `schemaOwed()` | `bool` | `$pendingMigrations !== []` |
 | `seedOwed()` | `bool` | `$seedingVersions !== []` |
+| `$migrationPath` | `?string` | the directory this package's own migrations live in; `null` when it declared none |
+| `$seederClass` | `?string` | the one idempotent seeder it declared; `null` when it declared none |
 | `codeVersionKnown()` | `bool` | whether Composer knows the deployed version, so there is one to advance the stored version to |
-| `$seederDeclared` | `bool` | whether the package declared a seeder for a pending release to use |
 | `isBroken()` | `bool` | this package's own manifest could not be read; `$problem` says how |
 | `owesWork()` | `bool` | broken, schema owed, or seed owed |
 | `runnable()` | `bool` | whether `run()` would go ahead rather than refuse before touching anything |
-| `unrunnableReason()` | `?string` | why it would refuse, naming what is missing; `null` when it would go ahead |
+| `refusal()` | `?UnrunnablePackage` | the refusal a run would make, built and handed back unthrown; `null` when it would go ahead |
+| `unrunnableReason()` | `?string` | that refusal's message, fit to show an operator; `null` when it would go ahead |
 | `needsAttention()` | `bool` | owes work and cannot run it — the third state, and the one with no button |
 
 The report is the only way to read update state. Nothing else in the system queries it
-directly, and nothing reimplements any part of it.
+directly, and nothing reimplements any part of it — the runner included, which is why a
+status carries `$migrationPath` and `$seederClass`. Those are the only two facts a run
+needs that are not an obligation, and a runner that read them off the registry itself
+would be a second view of what a package declared, beside this one.
+
+There is deliberately no accessor for the version ledger. Reading update state is
+`report()`; the only thing that writes it is `run()`. A public read/write path beside
+those two would be the same hole one level up, and a writable one would let a caller
+record a version no run ever earned.
 
 Two things are worth being precise about, because they are the design and not an
 implementation detail.
@@ -221,9 +230,10 @@ sweep of every declared table of every registered package to get a yes or a no.
 something to do; `runnable()` says a click would do it rather than be refused. A renderer
 that asked only the first draws a button whose only effect is an exception, and a renderer
 that answered the second for itself — by asking the registry what the package declared —
-would be a second view of update state beside this one. So the report answers both, the
-runner refuses on exactly the same answer, and `unrunnableReason()` is the sentence both
-the operator and the exception are given. `needsAttention()` names the state a renderer
+would be a second view of update state beside this one. So the report answers both, and
+`refusal()` builds the very `UnrunnablePackage` a run would throw and hands it back
+unthrown: the runner throws that object, a renderer prints its message. They cannot be
+worded differently, because there is only one of them. `needsAttention()` names the state a renderer
 actually branches on: owes work, has nothing runnable, show the reason instead of a button.
 
 **A package whose manifest cannot be read is broken, not quiet.** The failure belongs to
@@ -276,8 +286,9 @@ one a package declares must be idempotent.
 
 A run refuses, before it has touched anything, when the library would otherwise have to
 guess. Each throws `UnrunnablePackage` naming the package and what to declare — and each
-except the first is `PackageStatus::unrunnableReason()`, so what a renderer shows an
-operator and what a run refuses on are the same words from the same place:
+except the first is the object `PackageStatus::refusal()` hands a renderer, so what an
+operator is shown and what a run refuses with are not two strings that agree, they are
+one string:
 
 | Refusal | Why |
 |---|---|
@@ -299,10 +310,11 @@ every page rather than from a screen an operator has to go and find. There is no
 wire up: package discovery registers the library's provider, and the provider registers
 the hook.
 
-**A host with no Livewire gets no notice, and no complaint.** The notice is a Livewire
-component drawn into a Filament panel, so the provider registers it only where Livewire is
-actually there to draw it — installed *and* its provider registered, which is one question
-to the container. Most packages take this library for its reporting alone, and their own
+**A host that cannot draw the notice gets no notice, and no complaint.** The notice is a
+Livewire component drawn into a Filament panel, so the provider registers it only where
+both are actually there to draw it — installed *and* their providers registered, which is
+two questions to the container and neither of them a `class_exists()`: a package can be
+installed with its provider unregistered, and that is the host that crashes. Most packages take this library for its reporting alone, and their own
 test applications are bare Laravel apps with no panel in them; registering a notice such an
 app cannot draw would force every one of them to boot Filament and Livewire, in a
 particular order, for a surface they will never show. A package is not made to boot a panel
@@ -342,13 +354,16 @@ so the gate is not only a rendering decision.
 
 ### The version ledger
 
+The ledger is internal, and there is no way to reach it from outside the library. What a
+package's database is at is read through `report()`:
+
 ```php
-PluginUpdates::ledger()->record('qcentic-edge/filament-seo', '0.6.0');
-PluginUpdates::ledger()->storedVersion('qcentic-edge/filament-seo'); // '0.6.0'
+PluginUpdates::report()->status('qcentic-edge/filament-seo')->storedVersion; // '0.6.0'
 ```
 
-A package the ledger has never heard of reads back as `null`, never as an assumed
-version — and so does every package on a database that has never seen the ledger table.
+and the only thing that ever writes it is a successful `run()`. A package the ledger has
+never heard of reads back as `null`, never as an assumed version — and so does every
+package on a database that has never seen the ledger table.
 
 The ledger's table, `plugin_update_versions`, ships as no migration file of its own
 and cannot: it has to exist before the machinery that runs migrations can report
@@ -383,9 +398,11 @@ the order Composer's package discovery would produce — Filament's support prov
 Livewire mechanism, and rebinding one Livewire has already registered leaves that mechanism
 stateless.
 
-The `Host` suite boots two other shapes of application, because the library has to hold in
-both: one with the library's provider and nothing else, which is what a consuming package's
-own test app looks like, and one where the library's provider never registered at all.
+The `Host` suite boots three other shapes of application, because the library has to hold
+in all of them: one with the library's provider and nothing else, which is what a consuming
+package's own test app looks like; one with Livewire but no Filament, which has one half of
+what the notice needs and not the other; and one where the library's provider never
+registered at all.
 
 ## Changelog
 

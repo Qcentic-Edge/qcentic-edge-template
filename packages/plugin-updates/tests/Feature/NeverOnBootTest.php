@@ -27,8 +27,8 @@ it('touches nothing as the library provider boots', function () {
 it('runs nothing when a package declares itself from its own provider', function () {
     $this->app->register(BootRegisteringProvider::class);
 
-    expect(PluginUpdates::packages())->toHaveKey(INSTALLED_PACKAGE)
-        ->and(runStatus()->owesWork())->toBeTrue()
+    expect(PluginUpdates::packages())->toHaveKey(LIBRARY_PACKAGE)
+        ->and(statusOf(LIBRARY_PACKAGE)->owesWork())->toBeTrue()
         ->and(Schema::hasTable('run_widgets'))->toBeFalse()
         ->and(Schema::hasTable('run_notes'))->toBeFalse()
         ->and(appliedMigrations())->toBe([]);
@@ -40,5 +40,5 @@ it('writes no version to the ledger while a package declares itself', function (
     $this->app->register(BootRegisteringProvider::class);
 
     expect(Schema::hasTable(VersionLedger::TABLE))->toBeFalse()
-        ->and(runStatus()->storedVersion)->toBeNull();
+        ->and(statusOf(LIBRARY_PACKAGE)->storedVersion)->toBeNull();
 });

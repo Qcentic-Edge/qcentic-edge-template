@@ -2,7 +2,6 @@
 
 namespace QcenticEdge\PluginUpdates;
 
-use Illuminate\Support\ServiceProvider;
 use Livewire\Livewire;
 use QcenticEdge\PluginUpdates\Ledger\VersionLedger;
 use QcenticEdge\PluginUpdates\Notice\TopbarNotice;
@@ -10,25 +9,37 @@ use QcenticEdge\PluginUpdates\Notice\UpdatesNotice;
 use QcenticEdge\PluginUpdates\Registry\PackageRegistry;
 use QcenticEdge\PluginUpdates\Report\UpdateReport;
 use QcenticEdge\PluginUpdates\Runner\UpdateRunner;
+use Spatie\LaravelPackageTools\Package;
+use Spatie\LaravelPackageTools\PackageServiceProvider;
 
 /**
  * Still deliberately not a Filament plugin: no panel plugin object, no page, no
- * resource, no navigation item. It does now depend on Filament, because it
- * renders a notice into the panel's topbar and needs Filament's render hooks to
- * do it — but depending on Filament is not what makes a package a panel plugin
- * here. What does is the `filament-` prefix, a page and a direct install; this
- * library has none of the three and arrives transitively as a dependency of the
+ * resource, no navigation item. It does depend on Filament, because it renders
+ * a notice into the panel's topbar and needs Filament's render hooks to do it —
+ * but depending on Filament is not what makes a package a panel plugin here.
+ * What does is the `filament-` prefix, a page and a direct install; this library
+ * has none of the three and arrives transitively as a dependency of the
  * packages that use it.
  *
- * A plain Laravel ServiceProvider rather than Spatie's PackageServiceProvider,
- * which the plugins in this workstation use. That base class earns its keep
- * when a package publishes config, translations or migrations; this one
- * publishes none of those and never will, so extending it would add a
- * dependency to configure nothing. Considered and settled — please leave it.
+ * Spatie's `PackageServiceProvider`, like every plugin in this workstation and
+ * as AGENTS.md asks. The library ships one publishable thing — the two Blade
+ * views the topbar notice renders — and `->hasViews()` is precisely what that
+ * base class is for; a hand-rolled `loadViewsFrom()` beside a rationale for not
+ * extending it was a rationale that had outlived its own facts. It still ships
+ * no config, no translations and no migrations of its own, and the version
+ * ledger's table is ensured in code rather than by a migration file on purpose
+ * — see `Ledger\VersionLedger`.
  */
-class PluginUpdatesServiceProvider extends ServiceProvider
+class PluginUpdatesServiceProvider extends PackageServiceProvider
 {
-    public function register(): void
+    public function configurePackage(Package $package): void
+    {
+        $package
+            ->name('plugin-updates')
+            ->hasViews('plugin-updates');
+    }
+
+    public function packageRegistered(): void
     {
         $this->app->singleton(PackageRegistry::class);
         $this->app->singleton(VersionLedger::class);
@@ -52,16 +63,14 @@ class PluginUpdatesServiceProvider extends ServiceProvider
      * closure the panel calls while drawing a page, and nothing here reads the
      * database, the registry or the migration ledger. Nothing runs on boot.
      */
-    public function boot(): void
+    public function packageBooted(): void
     {
-        $this->loadViewsFrom(__DIR__.'/../resources/views', 'plugin-updates');
-
         // After every provider has booted, because Laravel's discovery order
         // does not promise that Livewire and Filament have registered theirs by
         // the time this one boots — and in a package's own test app they may
         // never register at all.
         $this->app->booted(function (): void {
-            if (! $this->hostRendersLivewire()) {
+            if (! $this->hostRendersNotice()) {
                 return;
             }
 
@@ -76,13 +85,23 @@ class PluginUpdatesServiceProvider extends ServiceProvider
      * cannot.
      *
      * The notice is a Livewire component rendered into a Filament panel's
-     * topbar, so a host with no Livewire has nothing to render it with. Two
-     * hosts look like that. One has never installed Livewire, and touching the
-     * facade there is a fatal "class not found". The other has it installed but
-     * has not registered its provider: the facade's accessor is a concrete
-     * class, so it auto-wires happily and then dies reaching for
-     * `livewire.finder`, a binding only that provider makes. Asking the
-     * container catches both, because neither host has the binding.
+     * topbar, so it needs both halves and the guard asks for both. Livewire
+     * alone was not enough: a host with Livewire and no panel still reached
+     * `FilamentView` and `PanelsRenderHook`, and hung a topbar hook on a panel
+     * registry that was never going to be asked for it.
+     *
+     * Both questions are asked of the container, and that is the whole trick.
+     * Neither `livewire` nor `filament` is a class name — they are string
+     * bindings that only Livewire's and Filament's own service providers make —
+     * so a host that has the package installed but never registered its
+     * provider answers no here, which is the answer that matters. Two hosts
+     * look like that. One has never installed the package at all, and touching
+     * the facade there is a fatal "class not found". The other has it installed
+     * and unregistered: the facade's accessor is a concrete class, so it
+     * auto-wires happily and then dies reaching for a binding only that
+     * provider makes. Please do not "simplify" either conjunct to
+     * `class_exists()`: that is true in the second host, and the second host is
+     * the one that crashes.
      *
      * Skipping is the whole point. Most packages take this library for its
      * reporting — what a release owes, and a way to run it — and never render
@@ -98,8 +117,8 @@ class PluginUpdatesServiceProvider extends ServiceProvider
      * that cannot render a notice still reports correctly to everything that
      * asks. An optional surface is skipped; a lost declaration is refused.
      */
-    private function hostRendersLivewire(): bool
+    private function hostRendersNotice(): bool
     {
-        return class_exists(Livewire::class) && $this->app->bound('livewire');
+        return $this->app->bound('livewire') && $this->app->bound('filament');
     }
 }

@@ -5,8 +5,24 @@
     Two shapes, because owing work and being able to do it are different
     questions: a package the report says is runnable gets the button, and one
     that owes work the library would refuse to run gets the reason instead.
+
+    The layout is a <style> block with real classes rather than utility classes,
+    which is how a package in this workstation styles a view it renders into
+    somebody else's panel — see filament-seo's social-preview and
+    filament-admin-bar's bar. The panel compiles its own CSS from its own
+    content paths, and a library's Blade file is not one of them, so a utility
+    class here would be a class name with no rule behind it on most sites.
 --}}
-<div class="fi-plugin-updates-notice" style="display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem;">
+<div class="fi-plugin-updates-notice">
+    <style>
+        .fi-plugin-updates-notice {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+        }
+    </style>
+
     @foreach ($this->owing() as $status)
         @if ($status->needsAttention())
             <x-filament::badge

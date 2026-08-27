@@ -4,6 +4,8 @@ use Illuminate\Support\Facades\DB;
 use QcenticEdge\PluginUpdates\PluginUpdates;
 use QcenticEdge\PluginUpdates\Registry\UpdatablePackage;
 use QcenticEdge\PluginUpdates\Report\PackageStatus;
+use QcenticEdge\PluginUpdates\Runner\UnrunnablePackage;
+use QcenticEdge\PluginUpdates\Tests\Fixtures\RunPackageSeeder;
 
 it('is empty until a package registers', function () {
     expect(PluginUpdates::report()->all())->toBe([])
@@ -24,10 +26,10 @@ it('reports a package that was never registered as absent', function () {
 
 it('answers the whole question in one place', function () {
     registerHistoryPackage();
-    placeHistoryAt('0.1.0');
+    placeAt(HISTORY_FIXTURE, '0.1.0');
     DB::table('history_widgets')->insert([['name' => 'first'], ['name' => 'second']]);
 
-    $status = historyStatus();
+    $status = statusOf(HISTORY_PACKAGE);
 
     expect($status)->toBeInstanceOf(PackageStatus::class)
         ->and($status->name)->toBe(HISTORY_PACKAGE)
@@ -47,8 +49,8 @@ it('answers the whole question in one place', function () {
 it('reports the deployed code version', function () {
     registerInstalledPackage();
 
-    expect(PluginUpdates::report()->status(INSTALLED_PACKAGE)->codeVersion)
-        ->toBe(libraryComposer()['version']);
+    expect(PluginUpdates::report()->status(LIBRARY_PACKAGE)->codeVersion)
+        ->toBe(libraryVersion());
 });
 
 it('says whether the deployed code version is known', function () {
@@ -57,9 +59,9 @@ it('says whether the deployed code version is known', function () {
     registerInstalledPackage();
     registerHistoryPackage();
 
-    expect(PluginUpdates::report()->status(INSTALLED_PACKAGE)->codeVersionKnown())->toBeTrue()
-        ->and(historyStatus()->codeVersion)->toBeNull()
-        ->and(historyStatus()->codeVersionKnown())->toBeFalse();
+    expect(PluginUpdates::report()->status(LIBRARY_PACKAGE)->codeVersionKnown())->toBeTrue()
+        ->and(statusOf(HISTORY_PACKAGE)->codeVersion)->toBeNull()
+        ->and(statusOf(HISTORY_PACKAGE)->codeVersionKnown())->toBeFalse();
 });
 
 it('owes nothing when the stored version is the code version and the path is fully applied', function () {
@@ -68,10 +70,10 @@ it('owes nothing when the stored version is the code version and the path is ful
     // release all land on the same point.
     registerInstalledPackage();
 
-    applyHistoryThrough('0.5.0');
-    PluginUpdates::ledger()->record(INSTALLED_PACKAGE, libraryComposer()['version']);
+    applyThrough(HISTORY_FIXTURE, '0.5.0');
+    versionLedger()->record(LIBRARY_PACKAGE, libraryVersion());
 
-    $status = PluginUpdates::report()->status(INSTALLED_PACKAGE);
+    $status = PluginUpdates::report()->status(LIBRARY_PACKAGE);
 
     expect($status->storedVersion)->toBe($status->codeVersion)
         ->and($status->versionsBehind())->toBe(0)
@@ -89,10 +91,10 @@ it('leaves a release the deployed code has not reached out of the pending list',
     // with its code still owes nothing.
     registerInstalledPackage(installedPackagePath('ahead-of-code.php'));
 
-    applyHistoryThrough('0.5.0');
-    PluginUpdates::ledger()->record(INSTALLED_PACKAGE, libraryComposer()['version']);
+    applyThrough(HISTORY_FIXTURE, '0.5.0');
+    versionLedger()->record(LIBRARY_PACKAGE, libraryVersion());
 
-    $status = PluginUpdates::report()->status(INSTALLED_PACKAGE);
+    $status = PluginUpdates::report()->status(LIBRARY_PACKAGE);
 
     expect($status->pendingVersions)->toBe([])
         ->and($status->versionsBehind())->toBe(0)
@@ -105,21 +107,21 @@ it('leaves the pending list unbounded above when the code version is unknown', f
     // Composer has never heard of the history fixture, so there is no deployed
     // version to bound against and every release above the stored one is
     // pending — the upper bound filters against something or not at all.
-    placeHistoryAt('0.3.0');
+    placeAt(HISTORY_FIXTURE, '0.3.0');
     registerHistoryPackage();
 
-    expect(historyStatus()->codeVersion)->toBeNull()
-        ->and(historyStatus()->pendingVersions)->toBe(['0.4.0', '0.5.0']);
+    expect(statusOf(HISTORY_PACKAGE)->codeVersion)->toBeNull()
+        ->and(statusOf(HISTORY_PACKAGE)->pendingVersions)->toBe(['0.4.0', '0.5.0']);
 });
 
 it('counts the rows of every table a package declared', function () {
     registerHistoryPackage();
-    applyHistoryThrough('0.5.0');
+    applyThrough(HISTORY_FIXTURE, '0.5.0');
 
     DB::table('history_widgets')->insert([['name' => 'one'], ['name' => 'two'], ['name' => 'three']]);
     DB::table('history_notes')->insert([['body' => 'a']]);
 
-    $tables = collect(historyStatus()->tables())->keyBy(fn ($table) => $table->name);
+    $tables = collect(statusOf(HISTORY_PACKAGE)->tables())->keyBy(fn ($table) => $table->name);
 
     expect($tables['history_widgets']->rows)->toBe(3)
         ->and($tables['history_notes']->rows)->toBe(1)
@@ -129,9 +131,9 @@ it('counts the rows of every table a package declared', function () {
 
 it('reports a declared table that does not exist yet as absent rather than throwing', function () {
     registerHistoryPackage();
-    applyHistoryThrough('0.1.0');
+    applyThrough(HISTORY_FIXTURE, '0.1.0');
 
-    $tables = collect(historyStatus()->tables())->keyBy(fn ($table) => $table->name);
+    $tables = collect(statusOf(HISTORY_PACKAGE)->tables())->keyBy(fn ($table) => $table->name);
 
     expect($tables['history_widgets']->exists())->toBeTrue()
         ->and($tables['history_widgets']->rows)->toBe(0)
@@ -155,7 +157,7 @@ it('counts no rows to answer whether anything is owed', function () {
     // question. Row counts are display-only and never an input to owesWork(),
     // so asking what is owed must not sweep a count over every declared table.
     registerHistoryPackage();
-    applyHistoryThrough('0.5.0');
+    applyThrough(HISTORY_FIXTURE, '0.5.0');
     DB::table('history_widgets')->insert([['name' => 'one']]);
 
     DB::flushQueryLog();
@@ -164,16 +166,16 @@ it('counts no rows to answer whether anything is owed', function () {
     expect(PluginUpdates::report()->anythingOwed())->toBeTrue()
         ->and(countingQueries())->toBe([]);
 
-    historyStatus()->tables();
+    statusOf(HISTORY_PACKAGE)->tables();
 
     expect(countingQueries())->not->toBe([]);
 });
 
 it('counts a table once however many times its status is asked for the counts', function () {
     registerHistoryPackage();
-    applyHistoryThrough('0.5.0');
+    applyThrough(HISTORY_FIXTURE, '0.5.0');
 
-    $status = historyStatus();
+    $status = statusOf(HISTORY_PACKAGE);
     $status->tables();
 
     DB::flushQueryLog();
@@ -186,14 +188,14 @@ it('counts a table once however many times its status is asked for the counts', 
 
 it('lists only the packages that owe work', function () {
     registerHistoryPackage();
-    placeHistoryAt('0.1.0');
+    placeAt(HISTORY_FIXTURE, '0.1.0');
 
     PluginUpdates::register(
         UpdatablePackage::make('qcentic-edge/fixture-quiet')
             ->title('Fixture Quiet')
             ->manifest(fixturePackagePath('updates.php')),
     );
-    PluginUpdates::ledger()->record('qcentic-edge/fixture-quiet', '0.3.0');
+    versionLedger()->record('qcentic-edge/fixture-quiet', '0.3.0');
 
     expect(array_keys(PluginUpdates::report()->owing()))->toBe([HISTORY_PACKAGE])
         ->and(PluginUpdates::report()->anythingOwed())->toBeTrue();
@@ -202,14 +204,14 @@ it('lists only the packages that owe work', function () {
 it('reports a package with no stored version as never having recorded one', function () {
     registerHistoryPackage();
 
-    expect(historyStatus()->storedVersion)->toBeNull();
+    expect(statusOf(HISTORY_PACKAGE)->storedVersion)->toBeNull();
 });
 
 it('surfaces a package whose manifest is missing without blinding the report', function () {
     // Story 42: the misdeclared package is what surfaces, not the panel going
     // down. Every other package still reports normally beside it.
     registerHistoryPackage();
-    placeHistoryAt('0.3.0');
+    placeAt(HISTORY_FIXTURE, '0.3.0');
     registerBrokenPackage();
 
     $status = PluginUpdates::report()->status(BROKEN_PACKAGE);
@@ -218,9 +220,9 @@ it('surfaces a package whose manifest is missing without blinding the report', f
         ->and($status->problem)->toContain('nowhere.php')
         ->and($status->name)->toBe(BROKEN_PACKAGE)
         ->and($status->title)->toBe('Broken Plugin')
-        ->and(historyStatus()->isBroken())->toBeFalse()
-        ->and(historyStatus()->storedVersion)->toBe('0.3.0')
-        ->and(historyStatus()->pendingVersions)->toBe(['0.4.0', '0.5.0']);
+        ->and(statusOf(HISTORY_PACKAGE)->isBroken())->toBeFalse()
+        ->and(statusOf(HISTORY_PACKAGE)->storedVersion)->toBe('0.3.0')
+        ->and(statusOf(HISTORY_PACKAGE)->pendingVersions)->toBe(['0.4.0', '0.5.0']);
 });
 
 it('surfaces a package whose manifest is not a set of releases', function () {
@@ -280,13 +282,13 @@ it('still knows which versions a broken package is between', function () {
     // The manifest is the only thing that could not be read. Where the database
     // is and what the code is are read from elsewhere, and they are what tells
     // the operator which package to go and look at.
-    registerBrokenPackage(name: INSTALLED_PACKAGE);
-    PluginUpdates::ledger()->record(INSTALLED_PACKAGE, '0.0.1');
+    registerBrokenPackage(name: LIBRARY_PACKAGE);
+    versionLedger()->record(LIBRARY_PACKAGE, '0.0.1');
 
-    $status = PluginUpdates::report()->status(INSTALLED_PACKAGE);
+    $status = PluginUpdates::report()->status(LIBRARY_PACKAGE);
 
     expect($status->storedVersion)->toBe('0.0.1')
-        ->and($status->codeVersion)->toBe(libraryComposer()['version']);
+        ->and($status->codeVersion)->toBe(libraryVersion());
 });
 
 /**
@@ -300,7 +302,7 @@ it('still knows which versions a broken package is between', function () {
 it('says a fully declared package could be run', function () {
     registerRunPackage();
 
-    $status = runStatus();
+    $status = statusOf(LIBRARY_PACKAGE);
 
     expect($status->owesWork())->toBeTrue()
         ->and($status->runnable())->toBeTrue()
@@ -309,9 +311,9 @@ it('says a fully declared package could be run', function () {
 });
 
 it('refuses to run a package whose manifest it cannot read, and says so', function () {
-    registerBrokenPackage(name: INSTALLED_PACKAGE);
+    registerBrokenPackage(name: LIBRARY_PACKAGE);
 
-    $status = PluginUpdates::report()->status(INSTALLED_PACKAGE);
+    $status = PluginUpdates::report()->status(LIBRARY_PACKAGE);
 
     expect($status->owesWork())->toBeTrue()
         ->and($status->runnable())->toBeFalse()
@@ -325,7 +327,7 @@ it('refuses to run a package whose deployed version Composer does not know, and 
     // to advance its database to — and it owes schema work all the same.
     registerHistoryPackage();
 
-    $status = historyStatus();
+    $status = statusOf(HISTORY_PACKAGE);
 
     expect($status->schemaOwed())->toBeTrue()
         ->and($status->owesWork())->toBeTrue()
@@ -337,7 +339,7 @@ it('refuses to run a package whose deployed version Composer does not know, and 
 it('refuses to run a package that owes a seed and declared no seeder, and says which releases asked', function () {
     registerRunPackage(withSeeder: false);
 
-    $status = runStatus();
+    $status = statusOf(LIBRARY_PACKAGE);
 
     expect($status->seedOwed())->toBeTrue()
         ->and($status->runnable())->toBeFalse()
@@ -350,17 +352,60 @@ it('tells owing nothing apart from owing work that cannot be run', function () {
     // Two packages a renderer must not confuse: one is quiet, the other has a
     // person to fetch. Neither gets a button, and only one of them is fine.
     registerInstalledPackage();
-    applyHistoryThrough('0.5.0');
-    PluginUpdates::ledger()->record(INSTALLED_PACKAGE, libraryComposer()['version']);
+    applyThrough(HISTORY_FIXTURE, '0.5.0');
+    versionLedger()->record(LIBRARY_PACKAGE, libraryVersion());
 
     registerHistoryPackage();
 
-    $quiet = PluginUpdates::report()->status(INSTALLED_PACKAGE);
-    $stuck = historyStatus();
+    $quiet = PluginUpdates::report()->status(LIBRARY_PACKAGE);
+    $stuck = statusOf(HISTORY_PACKAGE);
 
     expect($quiet->owesWork())->toBeFalse()
         ->and($quiet->needsAttention())->toBeFalse()
         ->and($quiet->runnable())->toBeTrue()
         ->and($stuck->owesWork())->toBeTrue()
         ->and($stuck->needsAttention())->toBeTrue();
+});
+
+it('shows an operator the very words a run would refuse with', function () {
+    // The load-bearing property of where the refusal is authored: what a
+    // renderer prints and what a run throws are not two strings kept in step,
+    // they are one object. `refusal()` builds the exception, a renderer reads
+    // its message, and the runner throws that same kind — so they cannot be
+    // worded differently by anybody editing one of them.
+    registerRunPackage(withSeeder: false);
+
+    $shown = statusOf(LIBRARY_PACKAGE)->unrunnableReason();
+
+    try {
+        PluginUpdates::run(LIBRARY_PACKAGE);
+        $refusal = null;
+    } catch (UnrunnablePackage $failure) {
+        $refusal = $failure;
+    }
+
+    expect($refusal)->not->toBeNull()
+        ->and($refusal->getMessage())->toBe($shown);
+});
+
+it('carries the two facts a run needs, so nothing reads them off the registry', function () {
+    // The runner takes the migration path and the seeder class from the status
+    // rather than from the declaration it was registered with. If the report
+    // stopped carrying them, the runner would have to grow a registry of its
+    // own — a second view of what a package declared, beside this one.
+    registerRunPackage();
+
+    $status = statusOf(LIBRARY_PACKAGE);
+
+    expect($status->migrationPath)->toBe(runPackagePath('migrations'))
+        ->and($status->seederClass)->toBe(RunPackageSeeder::class);
+});
+
+it('carries null for the two facts a package did not declare', function () {
+    registerRunPackage(withMigrations: false, withSeeder: false);
+
+    $status = statusOf(LIBRARY_PACKAGE);
+
+    expect($status->migrationPath)->toBeNull()
+        ->and($status->seederClass)->toBeNull();
 });

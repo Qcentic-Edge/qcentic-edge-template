@@ -13,7 +13,7 @@ use QcenticEdge\PluginUpdates\Registry\UpdatablePackage;
 it('owes schema work while a file in its own path is unapplied', function () {
     registerHistoryPackage();
 
-    $status = historyStatus();
+    $status = statusOf(HISTORY_PACKAGE);
 
     expect($status->schemaOwed())->toBeTrue()
         ->and($status->pendingMigrations)->toBe([
@@ -26,17 +26,17 @@ it('owes schema work while a file in its own path is unapplied', function () {
 
 it('owes no schema work once every file in its path is applied', function () {
     registerHistoryPackage();
-    applyHistoryThrough('0.5.0');
+    applyThrough(HISTORY_FIXTURE, '0.5.0');
 
-    expect(historyStatus()->schemaOwed())->toBeFalse()
-        ->and(historyStatus()->pendingMigrations)->toBe([]);
+    expect(statusOf(HISTORY_PACKAGE)->schemaOwed())->toBeFalse()
+        ->and(statusOf(HISTORY_PACKAGE)->pendingMigrations)->toBe([]);
 });
 
 it('skips the files already in the migration ledger', function () {
     registerHistoryPackage();
-    applyHistoryThrough('0.2.0');
+    applyThrough(HISTORY_FIXTURE, '0.2.0');
 
-    expect(historyStatus()->pendingMigrations)->toBe([
+    expect(statusOf(HISTORY_PACKAGE)->pendingMigrations)->toBe([
         '2026_05_01_000000_add_colour_to_history_widgets_table',
         '2026_05_01_000001_create_history_tags_table',
     ]);
@@ -47,9 +47,9 @@ it('reads schema state from the migrator and never from the stored version', fun
     // every migration already applied, nothing recorded in the version ledger.
     // It must report as up to date on the schema axis.
     registerHistoryPackage();
-    applyHistoryThrough('0.5.0');
+    applyThrough(HISTORY_FIXTURE, '0.5.0');
 
-    $status = historyStatus();
+    $status = statusOf(HISTORY_PACKAGE);
 
     expect($status->storedVersion)->toBeNull()
         ->and($status->versionsBehind())->toBe(5)
@@ -60,9 +60,9 @@ it('is unaffected by another package with unapplied migrations of its own', func
     registerHistoryPackage();
     registerFixturePackage();
 
-    applyHistoryThrough('0.5.0');
+    applyThrough(HISTORY_FIXTURE, '0.5.0');
 
-    expect(historyStatus()->schemaOwed())->toBeFalse()
+    expect(statusOf(HISTORY_PACKAGE)->schemaOwed())->toBeFalse()
         ->and(PluginUpdates::report()->status('qcentic-edge/fixture-plugin')->schemaOwed())
         ->toBeTrue();
 });
@@ -74,7 +74,7 @@ it('does not claim another package\'s applied migrations as its own', function (
     applyFixtureMigration(fixturePackagePath('migrations/2026_01_01_000000_create_fixture_widgets_table.php'));
 
     expect(PluginUpdates::report()->status('qcentic-edge/fixture-plugin')->schemaOwed())->toBeFalse()
-        ->and(historyStatus()->pendingMigrations)->toHaveCount(4);
+        ->and(statusOf(HISTORY_PACKAGE)->pendingMigrations)->toHaveCount(4);
 });
 
 it('never owes schema work when the package declared no migration path', function () {
@@ -109,11 +109,11 @@ it('surfaces schema work that no release declared', function () {
     // Story 42: undeclared schema work surfaces rather than being skipped, so a
     // release nobody added a manifest row for can never report a stale database
     // as healthy.
-    applyHistoryThrough('0.2.0');
-    PluginUpdates::ledger()->record(HISTORY_PACKAGE, '0.5.0');
+    applyThrough(HISTORY_FIXTURE, '0.2.0');
+    versionLedger()->record(HISTORY_PACKAGE, '0.5.0');
     registerHistoryPackage();
 
-    $status = historyStatus();
+    $status = statusOf(HISTORY_PACKAGE);
 
     expect($status->pendingVersions)->toBe([])
         ->and($status->versionsBehind())->toBe(0)

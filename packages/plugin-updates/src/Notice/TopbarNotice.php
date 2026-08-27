@@ -55,7 +55,7 @@ final class TopbarNotice
      */
     public static function render(): string|View
     {
-        if (self::suppressed() || ! Operator::signedIn()) {
+        if (self::suppressed() || ! Operator::present()) {
             return '';
         }
 

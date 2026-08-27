@@ -4,10 +4,10 @@
  * A package with a history, so a test can place a database at any point in it.
  *
  * Seeds only — schema is never declared here. Which release shipped which
- * migration file is recorded in the test suite (see `historyReleases()` in
- * Pest.php) and deliberately nowhere in the library: a map from migration file
- * to version would be a third hand-maintained copy of a fact the migrator
- * already holds.
+ * migration file is recorded in the test suite (see
+ * `releaseFixture(HISTORY_FIXTURE)` in Pest.php) and deliberately nowhere in
+ * the library: a map from migration file to version would be a third
+ * hand-maintained copy of a fact the migrator already holds.
  *
  * Releases, and what each shipped:
  *

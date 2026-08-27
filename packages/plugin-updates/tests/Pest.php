@@ -5,9 +5,10 @@ use Filament\Support\Facades\FilamentView;
 use Filament\View\PanelsRenderHook;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use QcenticEdge\PluginUpdates\Ledger\VersionLedger;
 use QcenticEdge\PluginUpdates\PluginUpdates;
-use QcenticEdge\PluginUpdates\Report\PackageStatus;
 use QcenticEdge\PluginUpdates\Registry\UpdatablePackage;
+use QcenticEdge\PluginUpdates\Report\PackageStatus;
 use QcenticEdge\PluginUpdates\Tests\Fixtures\FixtureSeeder;
 use QcenticEdge\PluginUpdates\Tests\Fixtures\InstallerLikePlugin;
 use QcenticEdge\PluginUpdates\Tests\Fixtures\RunPackageSeeder;
@@ -17,14 +18,31 @@ uses(TestCase::class)->in('Feature', 'Unit');
 uses(RefreshDatabase::class)->in('Feature');
 
 // Host/ is bound nowhere here on purpose: each file in it boots a different
-// shape of host — one with no Livewire to render the notice with, one where the
-// library's own provider never registered — so each names its own base class at
-// the top of the file rather than sharing a directory's.
+// shape of host — one with no Livewire and no Filament, one with Livewire and
+// no Filament, one where the library's own provider never registered — so each
+// names its own base class at the top of the file rather than sharing a
+// directory's.
+
+/**
+ * The library's own Composer name, and the reason two fixtures share it.
+ *
+ * It is the one package guaranteed to be installed while this suite runs, so a
+ * fixture that has to have a code version Composer can resolve — because a run
+ * refuses a package whose deployed version it cannot — registers under this
+ * name and borrows the library's own. It names a Composer identity, not a
+ * fixture: which fixture is registered under it is whichever `register…()`
+ * helper the test called.
+ */
+const LIBRARY_PACKAGE = 'qcentic-edge/plugin-updates';
 
 const HISTORY_PACKAGE = 'qcentic-edge/history-plugin';
-const INSTALLED_PACKAGE = 'qcentic-edge/plugin-updates';
 const OUT_OF_ORDER_PACKAGE = 'qcentic-edge/out-of-order-plugin';
 const BROKEN_PACKAGE = 'qcentic-edge/broken-plugin';
+
+/** The two fixtures with a release history behind them. See `releaseFixture()`. */
+const HISTORY_FIXTURE = 'history';
+
+const RUN_FIXTURE = 'run';
 
 function fixturePackagePath(string $path = ''): string
 {
@@ -55,6 +73,11 @@ function historyPackagePath(string $path = ''): string
     return rtrim(__DIR__.'/Fixtures/HistoryPackage/'.$path, '/');
 }
 
+function runPackagePath(string $path = ''): string
+{
+    return rtrim(__DIR__.'/Fixtures/RunPackage/'.$path, '/');
+}
+
 function outOfOrderPackagePath(string $path = ''): string
 {
     return rtrim(__DIR__.'/Fixtures/OutOfOrderPackage/'.$path, '/');
@@ -72,9 +95,9 @@ function installedPackagePath(string $path = ''): string
  * in development and most in the field, so it is the one that gets a fixture of
  * its own.
  */
-function registerHistoryPackage(string $name = HISTORY_PACKAGE): UpdatablePackage
+function registerHistoryPackage(): UpdatablePackage
 {
-    $package = UpdatablePackage::make($name)
+    $package = UpdatablePackage::make(HISTORY_PACKAGE)
         ->title('History Plugin')
         ->manifest(historyPackagePath('updates.php'))
         ->migrations(historyPackagePath('migrations'))
@@ -87,14 +110,48 @@ function registerHistoryPackage(string $name = HISTORY_PACKAGE): UpdatablePackag
 }
 
 /**
- * A package that really is installed under a Composer name, so a test can put
- * the stored version, the code version and the newest release all at the same
- * point. The library itself is the only package guaranteed to be installed
- * while its own suite runs, so it stands in for one.
+ * The fixture the run tests drive: four releases, four migration files, a
+ * seeder, and a third migration a test can make fail.
+ *
+ * Its releases all sit below LIBRARY_PACKAGE's version, and none of them equals
+ * it, so a test can tell "advanced to the code version" apart from "advanced to
+ * the newest pending release".
+ *
+ * Pass `withMigrations: false` for a package that owes only a seed, and
+ * `withSeeder: false` for one that declares none.
+ */
+function registerRunPackage(bool $withMigrations = true, bool $withSeeder = true): UpdatablePackage
+{
+    $package = UpdatablePackage::make(LIBRARY_PACKAGE)
+        ->title('Run Plugin')
+        ->manifest(runPackagePath('updates.php'))
+        ->tables(['run_widgets', 'run_notes', 'run_tags']);
+
+    if ($withMigrations) {
+        $package->migrations(runPackagePath('migrations'));
+    }
+
+    if ($withSeeder) {
+        $package->seeder(RunPackageSeeder::class);
+    }
+
+    PluginUpdates::register($package);
+
+    return $package;
+}
+
+/**
+ * A package with one release, pinned to the deployed version of
+ * LIBRARY_PACKAGE, so a test can put the stored version, the code version and
+ * the newest release all at the same point — the site that owes nothing.
+ *
+ * Not the run fixture with a different manifest: this one exists to be quiet,
+ * and its migrations are the history fixture's so that "fully applied" is a
+ * state a test can arrange with `applyThrough(HISTORY_FIXTURE, …)`.
  */
 function registerInstalledPackage(?string $manifest = null): UpdatablePackage
 {
-    $package = UpdatablePackage::make(INSTALLED_PACKAGE)
+    $package = UpdatablePackage::make(LIBRARY_PACKAGE)
         ->title('Plugin Updates')
         ->manifest($manifest ?? installedPackagePath('updates.php'))
         ->migrations(historyPackagePath('migrations'));
@@ -136,44 +193,73 @@ function registerBrokenPackage(?string $manifest = null, string $name = BROKEN_P
 }
 
 /**
- * Which migration files each release of the history fixture shipped.
+ * The two fixtures that span several releases: which migration files each of
+ * their releases shipped, where those files live, and the name the fixture is
+ * registered under.
  *
- * This map lives in the test suite and must never grow anywhere in `src/`.
- * The library reads schema state from the migrator's own per-file ledger
- * precisely so that it never needs to know which release a file belongs to;
- * a copy of that fact inside the library would drift the same way the
+ * There are two of them because they answer questions that cannot be answered
+ * by one package. HistoryPackage is registered under a name Composer has never
+ * heard of, which is exactly what a reporting test wants: a database placed at
+ * any point in a history, asked what it owes. RunPackage is registered under
+ * LIBRARY_PACKAGE, because a run refuses a package whose deployed version
+ * Composer cannot resolve, and a run test has to get past that refusal. One
+ * fixture cannot be both unknown to Composer and known to it, so their shapes
+ * rhyme and their purposes do not.
+ *
+ * The release-to-file map lives in the test suite and must never grow anywhere
+ * in `src/`. The library reads schema state from the migrator's own per-file
+ * ledger precisely so that it never needs to know which release a file belongs
+ * to; a copy of that fact inside the library would drift the same way the
  * rejected manifest schema flag would have.
  *
- * @return array<string, list<string>>
+ * @return array{package: string, migrations: string, releases: array<string, list<string>>}
  */
-function historyReleases(): array
+function releaseFixture(string $fixture): array
 {
-    return [
-        '0.1.0' => ['2026_01_01_000000_create_history_widgets_table'],
-        '0.2.0' => ['2026_02_01_000000_create_history_notes_table'],
-        '0.3.0' => [],
-        '0.4.0' => [],
-        '0.5.0' => [
-            '2026_05_01_000000_add_colour_to_history_widgets_table',
-            '2026_05_01_000001_create_history_tags_table',
+    return match ($fixture) {
+        HISTORY_FIXTURE => [
+            'package' => HISTORY_PACKAGE,
+            'migrations' => historyPackagePath('migrations'),
+            'releases' => [
+                '0.1.0' => ['2026_01_01_000000_create_history_widgets_table'],
+                '0.2.0' => ['2026_02_01_000000_create_history_notes_table'],
+                '0.3.0' => [],
+                '0.4.0' => [],
+                '0.5.0' => [
+                    '2026_05_01_000000_add_colour_to_history_widgets_table',
+                    '2026_05_01_000001_create_history_tags_table',
+                ],
+            ],
         ],
-    ];
+        RUN_FIXTURE => [
+            'package' => LIBRARY_PACKAGE,
+            'migrations' => runPackagePath('migrations'),
+            'releases' => [
+                '0.0.1' => ['2026_01_01_000000_create_run_widgets_table'],
+                '0.0.2' => ['2026_02_01_000000_create_run_notes_table'],
+                '0.0.3' => ['2026_03_01_000000_create_run_tags_table'],
+                '0.0.4' => ['2026_04_01_000000_add_colour_to_run_widgets_table'],
+            ],
+        ],
+    };
 }
 
 /**
- * Run every history migration that shipped at or before this release, and
- * record it in Laravel's own ledger — which is what an operator's database
+ * Run every migration this fixture shipped at or before the given release, and
+ * record each in Laravel's own ledger — which is what an operator's database
  * looks like when their site last deployed at that release.
  */
-function applyHistoryThrough(string $release): void
+function applyThrough(string $fixture, string $release): void
 {
-    foreach (historyReleases() as $version => $migrations) {
+    $fixture = releaseFixture($fixture);
+
+    foreach ($fixture['releases'] as $version => $migrations) {
         if (version_compare($version, $release, '>')) {
             continue;
         }
 
         foreach ($migrations as $migration) {
-            applyFixtureMigration(historyPackagePath('migrations/'.$migration.'.php'));
+            applyFixtureMigration($fixture['migrations'].'/'.$migration.'.php');
         }
     }
 }
@@ -190,116 +276,37 @@ function applyFixtureMigration(string $file): void
 }
 
 /**
- * Put the database where a site that last deployed at this release would be:
- * its migrations applied and its stored version recorded.
+ * Put the database where a site that last deployed this fixture at this release
+ * would be: its migrations applied and its stored version recorded.
  */
-function placeHistoryAt(string $release, string $name = HISTORY_PACKAGE): void
+function placeAt(string $fixture, string $release): void
 {
-    applyHistoryThrough($release);
+    applyThrough($fixture, $release);
 
-    PluginUpdates::ledger()->record($name, $release);
+    versionLedger()->record(releaseFixture($fixture)['package'], $release);
 }
 
-/** What the report says the history fixture owes. */
-function historyStatus(string $name = HISTORY_PACKAGE): PackageStatus
+/** What the report says one package owes — read back the same way anything else reads it. */
+function statusOf(string $package): PackageStatus
 {
-    return PluginUpdates::report()->status($name)
-        ?? throw new RuntimeException("No package [{$name}] is registered; a test that asks "
-            .'what the history fixture owes has to call registerHistoryPackage() first.');
-}
-
-function runPackagePath(string $path = ''): string
-{
-    return rtrim(__DIR__.'/Fixtures/RunPackage/'.$path, '/');
+    return PluginUpdates::report()->status($package)
+        ?? throw new RuntimeException("No package [{$package}] is registered; a test that asks what "
+            .'it owes has to register it first.');
 }
 
 /**
- * The fixture the run tests drive: four releases, four migration files, a
- * seeder, and a third migration a test can make fail.
+ * The version ledger itself.
  *
- * Registered under the library's own Composer name, because a run refuses a
- * package whose deployed version Composer does not know and the library is the
- * only package guaranteed to be installed while its own suite runs. Its
- * releases all sit below that version, and none of them equals it, so a test
- * can tell "advanced to the code version" apart from "advanced to the newest
- * pending release".
- *
- * Pass `withMigrations: false` for a package that owes only a seed, and
- * `withSeeder: false` for one that declares none.
+ * Deliberately not reachable from `PluginUpdates`: outside the library, update
+ * state is read through the report and written only by `run()`, and a public
+ * accessor beside those would be a second view of it. Placing a database at a
+ * point in history is not something a consumer can do, or should be able to —
+ * so the suite reaches for the library's own class to arrange a fixture, which
+ * is the one liberty a test takes that a consumer may not.
  */
-function registerRunPackage(bool $withMigrations = true, bool $withSeeder = true): UpdatablePackage
+function versionLedger(): VersionLedger
 {
-    $package = UpdatablePackage::make(INSTALLED_PACKAGE)
-        ->title('Run Plugin')
-        ->manifest(runPackagePath('updates.php'))
-        ->tables(['run_widgets', 'run_notes', 'run_tags']);
-
-    if ($withMigrations) {
-        $package->migrations(runPackagePath('migrations'));
-    }
-
-    if ($withSeeder) {
-        $package->seeder(RunPackageSeeder::class);
-    }
-
-    PluginUpdates::register($package);
-
-    return $package;
-}
-
-/**
- * Which migration file each release of the run fixture shipped. Like
- * `historyReleases()`, this map lives in the test suite and must never grow
- * anywhere in `src/`.
- *
- * @return array<string, list<string>>
- */
-function runReleases(): array
-{
-    return [
-        '0.0.1' => ['2026_01_01_000000_create_run_widgets_table'],
-        '0.0.2' => ['2026_02_01_000000_create_run_notes_table'],
-        '0.0.3' => ['2026_03_01_000000_create_run_tags_table'],
-        '0.0.4' => ['2026_04_01_000000_add_colour_to_run_widgets_table'],
-    ];
-}
-
-/** Run every run-fixture migration that shipped at or before this release. */
-function applyRunThrough(string $release): void
-{
-    foreach (runReleases() as $version => $migrations) {
-        if (version_compare($version, $release, '>')) {
-            continue;
-        }
-
-        foreach ($migrations as $migration) {
-            applyFixtureMigration(runPackagePath('migrations/'.$migration.'.php'));
-        }
-    }
-}
-
-/** Put the database where a site that last deployed the run fixture at this release would be. */
-function placeRunAt(string $release): void
-{
-    applyRunThrough($release);
-
-    PluginUpdates::ledger()->record(INSTALLED_PACKAGE, $release);
-}
-
-/** What the report says the run fixture owes — read back the same way anything else reads it. */
-function runStatus(): PackageStatus
-{
-    return PluginUpdates::report()->status(INSTALLED_PACKAGE)
-        ?? throw new RuntimeException('No run fixture is registered; call registerRunPackage() first.');
-}
-
-/**
- * The version of the run fixture's code as deployed. It is the library's own,
- * because the run fixture registers under the library's Composer name.
- */
-function runCodeVersion(): string
-{
-    return libraryComposer()['version'];
+    return app(VersionLedger::class);
 }
 
 /** Every migration Laravel's own ledger records as applied. */
@@ -334,18 +341,41 @@ function libraryComposer(): array
     return json_decode(file_get_contents(libraryPath('composer.json')), true);
 }
 
+/**
+ * The version of this library's code as deployed — which is the code version of
+ * every fixture registered under LIBRARY_PACKAGE.
+ */
+function libraryVersion(): string
+{
+    return libraryComposer()['version'];
+}
+
 /** Every PHP file under `src/`, concatenated, for the not-a-panel-plugin guards. */
 function librarySource(): string
 {
-    $source = '';
+    return implode('', array_map(file_get_contents(...), librarySourceFiles()));
+}
 
-    foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator(libraryPath('src'))) as $file) {
+/**
+ * Every PHP file under `src/`, keyed by its path relative to `src/`, for a
+ * guard that cares which file something appears in.
+ *
+ * @return array<string, string>
+ */
+function librarySourceFiles(): array
+{
+    $files = [];
+    $root = libraryPath('src');
+
+    foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root)) as $file) {
         if ($file->isFile() && $file->getExtension() === 'php') {
-            $source .= file_get_contents($file->getPathname());
+            $files[ltrim(str_replace($root, '', $file->getPathname()), '/')] = $file->getPathname();
         }
     }
 
-    return $source;
+    ksort($files);
+
+    return $files;
 }
 
 /** A path inside the library root, whatever directory a test file lives in. */

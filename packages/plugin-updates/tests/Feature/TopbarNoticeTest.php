@@ -22,8 +22,8 @@ it('names a package that owes work, in the topbar of every page', function () {
 
 it('says nothing when every package is up to date', function () {
     registerInstalledPackage();
-    applyHistoryThrough('0.5.0');
-    PluginUpdates::ledger()->record(INSTALLED_PACKAGE, libraryComposer()['version']);
+    applyThrough(HISTORY_FIXTURE, '0.5.0');
+    versionLedger()->record(LIBRARY_PACKAGE, libraryVersion());
 
     expect(PluginUpdates::report()->anythingOwed())->toBeFalse()
         ->and(renderTopbar())->toBe('');
@@ -64,13 +64,13 @@ it('shows nothing to a guest, or to a user who is not a super admin', function (
 
 it('carries the action that brings a package up to date', function () {
     registerRunPackage();
-    placeRunAt('0.0.2');
+    placeAt(RUN_FIXTURE, '0.0.2');
 
     Livewire::test(UpdatesNotice::class)
-        ->callAction('update', arguments: ['package' => INSTALLED_PACKAGE]);
+        ->callAction('update', arguments: ['package' => LIBRARY_PACKAGE]);
 
-    expect(runStatus()->storedVersion)->toBe(runCodeVersion())
-        ->and(runStatus()->owesWork())->toBeFalse();
+    expect(statusOf(LIBRARY_PACKAGE)->storedVersion)->toBe(libraryVersion())
+        ->and(statusOf(LIBRARY_PACKAGE)->owesWork())->toBeFalse();
 });
 
 it('offers no button for a package that owes work it would refuse to run, and gives the reason instead', function () {
@@ -78,7 +78,7 @@ it('offers no button for a package that owes work it would refuse to run, and gi
     // would be refused the moment it was made.
     registerRunPackage(withSeeder: false);
 
-    expect(runStatus()->needsAttention())->toBeTrue();
+    expect(statusOf(LIBRARY_PACKAGE)->needsAttention())->toBeTrue();
 
     $notice = renderTopbar();
 

@@ -6666,14 +6666,15 @@
             "dist": {
                 "type": "path",
                 "url": "../packages/plugin-updates",
-                "reference": "b55f52b8874d0ef4c6dd2cdb47868323b55c9089"
+                "reference": "25ed7bc60412a92c403a1066181f0e778458b630"
             },
             "require": {
                 "composer-runtime-api": "^2.2",
                 "filament/filament": "^5.0",
                 "illuminate/database": "^12.0|^13.0",
                 "illuminate/support": "^12.0|^13.0",
-                "php": "^8.3"
+                "php": "^8.3",
+                "spatie/laravel-package-tools": "^1.9"
             },
             "require-dev": {
                 "orchestra/testbench": "^10.0",

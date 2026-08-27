@@ -23,6 +23,13 @@ use QcenticEdge\PluginUpdates\Schema\PendingMigrations;
  * this, and nothing else queries update state directly. Nothing is cached:
  * every call is a fresh read, because row counts and the migration ledger both
  * move underneath it.
+ *
+ * A status therefore carries the two facts only a run uses — where this
+ * package's migrations live and which seeder it declared — rather than leaving
+ * the runner to read them off the registry itself. The runner is a consumer
+ * like the renderers are, and a consumer that reached past the report for half
+ * its answer would be the second view of update state this seam exists to
+ * prevent.
  */
 final class UpdateReport
 {
@@ -103,7 +110,8 @@ final class UpdateReport
                 title: $package->displayTitle(),
                 storedVersion: $storedVersion,
                 codeVersion: $codeVersion,
-                seederDeclared: $package->seederClass() !== null,
+                migrationPath: $package->migrationPath(),
+                seederClass: $package->seederClass(),
                 problem: $failure->getMessage(),
             );
         }
@@ -118,7 +126,8 @@ final class UpdateReport
             pendingVersions: $pendingVersions,
             pendingMigrations: $this->migrations->inPath($package->migrationPath()),
             seedingVersions: $manifest->seedingAmong($pendingVersions),
-            seederDeclared: $package->seederClass() !== null,
+            migrationPath: $package->migrationPath(),
+            seederClass: $package->seederClass(),
             countTables: fn (): array => array_map($this->countRows(...), $package->tableNames()),
         );
     }

@@ -43,7 +43,7 @@ class UpdatesNotice extends Component implements HasActions, HasSchemas
      */
     public function owing(): array
     {
-        return Operator::signedIn() ? PluginUpdates::report()->owing() : [];
+        return Operator::present() ? PluginUpdates::report()->owing() : [];
     }
 
     /**
@@ -66,7 +66,7 @@ class UpdatesNotice extends Component implements HasActions, HasSchemas
             ->modalDescription('Migrations run against the live database. Take a backup first if the release notes call for one.')
             ->modalSubmitActionLabel('Update')
             ->action(function (array $arguments): void {
-                abort_unless(Operator::signedIn(), 403);
+                abort_unless(Operator::present(), 403);
 
                 $package = $arguments['package'];
                 $title = $this->titleOf($package);
@@ -93,7 +93,7 @@ class UpdatesNotice extends Component implements HasActions, HasSchemas
 
     public function render(): View
     {
-        return view('plugin-updates::notice');
+        return view('plugin-updates::livewire.notice');
     }
 
     /** The name the operator sees, read back through the report like everything else. */

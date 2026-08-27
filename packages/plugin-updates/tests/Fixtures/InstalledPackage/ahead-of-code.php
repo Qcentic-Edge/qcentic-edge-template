@@ -11,6 +11,6 @@
  * unreachably above it.
  */
 return [
-    libraryComposer()['version'] => ['seed' => false],
+    libraryVersion() => ['seed' => false],
     '99.0.0' => ['seed' => true],
 ];

@@ -3,13 +3,17 @@
 namespace QcenticEdge\PluginUpdates\Report;
 
 use Closure;
+use Illuminate\Database\Seeder;
+use QcenticEdge\PluginUpdates\Runner\UnrunnablePackage;
 
 /**
  * What one package owes, read once and answered in full.
  *
  * Everything downstream — the installer's page, the topbar notice, the run
  * action — is a view of this object, and nothing else in the system queries
- * update state directly.
+ * update state directly. That includes the runner: what it owes, whether a run
+ * would be refused, and where its migrations and seeder are all come from here,
+ * so no consumer holds a second view of the registry beside the report.
  *
  * The two obligations come from two different places, and that split is the
  * load-bearing decision of the whole design. `pendingMigrations` is the diff
@@ -32,13 +36,19 @@ final class PackageStatus
     /** @var list<TableCount>|null resolved on first ask, never on the way past */
     private ?array $tables = null;
 
+    /** The refusal, built once. Null is an answer here, so a flag rather than a null check. */
+    private bool $refusalResolved = false;
+
+    private ?UnrunnablePackage $refusal = null;
+
     /**
      * @param  string|null  $storedVersion  the version this package's database is at, null when it has never recorded one
      * @param  string|null  $codeVersion  the version of the code deployed, null when Composer does not know the package
      * @param  list<string>  $pendingVersions  manifest releases above the stored version and at or below the code version, oldest first
      * @param  list<string>  $pendingMigrations  unapplied migration names in this package's own path, in run order
      * @param  list<string>  $seedingVersions  the pending releases that asked for a seed
-     * @param  bool  $seederDeclared  whether the package declared a seeder for those releases to use
+     * @param  string|null  $migrationPath  the directory this package's own migrations live in, null when it declared none
+     * @param  class-string<Seeder>|null  $seederClass  the one idempotent seeder it declared, null when it declared none
      * @param  Closure(): list<TableCount>  $countTables  the declared tables and their row counts, counted only if asked
      * @param  string|null  $problem  why this package's own declaration could not be read, null when it could
      */
@@ -50,7 +60,8 @@ final class PackageStatus
         public readonly array $pendingVersions,
         public readonly array $pendingMigrations,
         public readonly array $seedingVersions,
-        public readonly bool $seederDeclared,
+        public readonly ?string $migrationPath,
+        public readonly ?string $seederClass,
         private readonly Closure $countTables,
         public readonly ?string $problem = null,
     ) {}
@@ -64,14 +75,20 @@ final class PackageStatus
      * render as quiet beside the ones it can, or a misdeclared package would be
      * indistinguishable from an up-to-date one. `$problem` carries the message
      * that says which package is misdeclared and how, and is the first of the
-     * reasons `unrunnableReason()` gives.
+     * reasons `refusal()` gives.
+     *
+     * It still carries where its migrations and seeder are, because those are
+     * facts about the declaration and are readable whatever the manifest does.
+     * Every status has the same shape, so nothing reading one has to ask first
+     * whether this is the broken kind.
      */
     public static function broken(
         string $name,
         string $title,
         ?string $storedVersion,
         ?string $codeVersion,
-        bool $seederDeclared,
+        ?string $migrationPath,
+        ?string $seederClass,
         string $problem,
     ): self {
         return new self(
@@ -82,7 +99,8 @@ final class PackageStatus
             pendingVersions: [],
             pendingMigrations: [],
             seedingVersions: [],
-            seederDeclared: $seederDeclared,
+            migrationPath: $migrationPath,
+            seederClass: $seederClass,
             countTables: static fn (): array => [],
             problem: $problem,
         );
@@ -159,40 +177,51 @@ final class PackageStatus
      */
     public function runnable(): bool
     {
-        return $this->unrunnableReason() === null;
+        return $this->refusal() === null;
     }
 
     /**
-     * Why a run would be refused, in a sentence that names what is missing —
-     * fit to show an operator, and to carry as the exception's message when a
-     * run is attempted anyway. Null when a run would go ahead.
+     * The refusal a run would make, built and handed back rather than thrown —
+     * or null when a run would go ahead.
+     *
+     * This is the one place the two audiences meet. The runner throws exactly
+     * this object; a renderer shows exactly this object's message. They cannot
+     * be worded differently because they are not two strings, they are one.
      *
      * Three cases, in the order a run meets them. Each is the same principle:
      * the library refuses to guess, because guessing here would either invent a
      * version the database is then wrongly recorded at, or silently skip work a
      * release declared — and both report a stale database as healthy, which is
-     * the one failure this whole arrangement exists to prevent.
+     * the one failure this whole arrangement exists to prevent. The sentences
+     * themselves are on `UnrunnablePackage`, with the rest of this package's
+     * operator-facing prose.
+     */
+    public function refusal(): ?UnrunnablePackage
+    {
+        if ($this->refusalResolved) {
+            return $this->refusal;
+        }
+
+        $this->refusalResolved = true;
+
+        return $this->refusal = match (true) {
+            $this->isBroken() => UnrunnablePackage::manifestUnreadable($this->name, $this->problem),
+            ! $this->codeVersionKnown() => UnrunnablePackage::codeVersionUnknown($this->name),
+            $this->seedOwed() && $this->seederClass === null => UnrunnablePackage::seederUndeclared($this->name, $this->seedingVersions),
+            default => null,
+        };
+    }
+
+    /**
+     * Why a run would be refused, in a sentence fit to show an operator. Null
+     * when a run would go ahead.
+     *
+     * Literally the message of the exception a run would throw — see
+     * `refusal()` — so a renderer needs no exception handling to print it.
      */
     public function unrunnableReason(): ?string
     {
-        if ($this->isBroken()) {
-            return 'Its own release manifest cannot be read, so whether it owes a seed is unknown and '
-                ."running it would be running blind: {$this->problem}";
-        }
-
-        if (! $this->codeVersionKnown()) {
-            return 'Composer does not know what version of its code is deployed, so there is no version '
-                .'to advance its database to. Check that it is installed under the name it registered.';
-        }
-
-        if ($this->seedOwed() && ! $this->seederDeclared) {
-            return 'The release(s) ['.implode(', ', $this->seedingVersions).'] ask for a seed and it '
-                .'declared no seeder. Declare one with UpdatablePackage::make(...)->seeder(YourSeeder::class), '
-                .'or set seed => false for those releases. Skipping the seed quietly would lose the data '
-                .'those releases meant to add.';
-        }
-
-        return null;
+        return $this->refusal()?->getMessage();
     }
 
     /**

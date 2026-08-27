@@ -2,7 +2,6 @@
 
 namespace QcenticEdge\PluginUpdates;
 
-use QcenticEdge\PluginUpdates\Ledger\VersionLedger;
 use QcenticEdge\PluginUpdates\Registry\IncompleteDeclaration;
 use QcenticEdge\PluginUpdates\Registry\PackageRegistry;
 use QcenticEdge\PluginUpdates\Registry\UnreachableRegistry;
@@ -70,15 +69,17 @@ final class PluginUpdates
         return self::registry()->get($name);
     }
 
-    public static function ledger(): VersionLedger
-    {
-        return app(VersionLedger::class);
-    }
-
     /**
      * What every registered package owes, right now. This is the only way to
      * read update state — the installer's page, the topbar notice and the run
      * action are all views of it, and nothing else queries it directly.
+     *
+     * There is deliberately no way to reach the version ledger from here.
+     * Reading it is `report()`, and the only thing that writes it is `run()`.
+     * A public accessor beside those two would be a second view of update
+     * state — the exact hole the one-seam rule exists to close — and a writable
+     * one would let a caller record a version no run ever earned, which reports
+     * a stale database as healthy for ever after.
      */
     public static function report(): UpdateReport
     {

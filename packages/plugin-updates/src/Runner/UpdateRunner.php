@@ -6,7 +6,6 @@ use Illuminate\Contracts\Container\Container;
 use Illuminate\Database\Migrations\Migrator;
 use Illuminate\Database\Seeder;
 use QcenticEdge\PluginUpdates\Ledger\VersionLedger;
-use QcenticEdge\PluginUpdates\Registry\PackageRegistry;
 use QcenticEdge\PluginUpdates\Report\UpdateReport;
 
 /**
@@ -20,6 +19,11 @@ use QcenticEdge\PluginUpdates\Report\UpdateReport;
  * releases, one write of the code version. The migrator replays from wherever
  * this particular database stopped, and nothing here asks how far back that was.
  *
+ * Everything it knows about a package it reads from the report, and it holds no
+ * registry of its own. The report is the only way to read update state, and a
+ * runner that read half its answer from the registry and half from the report
+ * would be exactly the second view of that state the seam exists to prevent.
+ *
  * Only ever reached from an explicit action — an operator's click. Nothing
  * calls it on boot; several replicas starting the same schema change on deploy
  * is the failure that avoids.
@@ -27,7 +31,6 @@ use QcenticEdge\PluginUpdates\Report\UpdateReport;
 final class UpdateRunner
 {
     public function __construct(
-        private readonly PackageRegistry $registry,
         private readonly UpdateReport $report,
         private readonly VersionLedger $ledger,
         private readonly Migrator $migrator,
@@ -45,29 +48,24 @@ final class UpdateRunner
      */
     public function run(string $package): void
     {
-        $declaration = $this->registry->get($package)
+        // What this package owes, and what to do it with. A package the report
+        // cannot answer for is one nothing has declared.
+        $status = $this->report->status($package)
             ?? throw UnrunnablePackage::notRegistered($package);
-
-        // What this package owes, read through the report rather than derived
-        // again here: the run does exactly what the operator was shown, and
-        // nothing gets a private view of update state. The report reads the
-        // same registry, so a package the registry holds is one it can answer
-        // for.
-        $status = $this->report->status($package);
 
         // Refused before anything has been touched, so a refusal never leaves a
         // half-finished update behind. The three cases are decided on the
-        // status rather than here, because the operator was shown the same
-        // object and must never be offered a button whose only effect is this
-        // exception.
-        if (($refusal = $status->unrunnableReason()) !== null) {
-            throw UnrunnablePackage::because($status->name, $refusal);
+        // status rather than here, and this is the very exception the operator
+        // was shown the message of — they cannot say different things, because
+        // there is only one of them.
+        if (($refusal = $status->refusal()) !== null) {
+            throw $refusal;
         }
 
-        $this->migrate($declaration->migrationPath());
+        $this->migrate($status->migrationPath);
 
         if ($status->seedOwed()) {
-            $this->seed($declaration->seederClass());
+            $this->seed($status->seederClass);
         }
 
         // Last, and only here. A run that died before this line leaves the

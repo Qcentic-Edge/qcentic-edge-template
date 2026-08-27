@@ -24,7 +24,7 @@ it('keeps the two files applied before a failure on the third', function () {
     registerRunPackage();
     MidRunFailure::arm();
 
-    expect(fn () => PluginUpdates::run(INSTALLED_PACKAGE))->toThrow(RuntimeException::class);
+    expect(fn () => PluginUpdates::run(LIBRARY_PACKAGE))->toThrow(RuntimeException::class);
 
     expect(Schema::hasTable('run_widgets'))->toBeTrue()
         ->and(Schema::hasTable('run_notes'))->toBeTrue()
@@ -39,18 +39,18 @@ it('leaves the stored version unmoved when a run failed partway', function () {
     registerRunPackage();
     MidRunFailure::arm();
 
-    expect(fn () => PluginUpdates::run(INSTALLED_PACKAGE))->toThrow(RuntimeException::class);
+    expect(fn () => PluginUpdates::run(LIBRARY_PACKAGE))->toThrow(RuntimeException::class);
 
-    expect(runStatus()->storedVersion)->toBeNull();
+    expect(statusOf(LIBRARY_PACKAGE)->storedVersion)->toBeNull();
 });
 
 it('still reports the package as behind after a run failed partway', function () {
     registerRunPackage();
     MidRunFailure::arm();
 
-    expect(fn () => PluginUpdates::run(INSTALLED_PACKAGE))->toThrow(RuntimeException::class);
+    expect(fn () => PluginUpdates::run(LIBRARY_PACKAGE))->toThrow(RuntimeException::class);
 
-    $status = runStatus();
+    $status = statusOf(LIBRARY_PACKAGE);
 
     expect($status->owesWork())->toBeTrue()
         ->and($status->schemaOwed())->toBeTrue()
@@ -65,11 +65,11 @@ it('resumes from the first unapplied file on a second run and reaches the code v
     registerRunPackage();
     MidRunFailure::arm();
 
-    expect(fn () => PluginUpdates::run(INSTALLED_PACKAGE))->toThrow(RuntimeException::class);
+    expect(fn () => PluginUpdates::run(LIBRARY_PACKAGE))->toThrow(RuntimeException::class);
 
     MidRunFailure::disarm();
 
-    PluginUpdates::run(INSTALLED_PACKAGE);
+    PluginUpdates::run(LIBRARY_PACKAGE);
 
     // The first two files were not run a second time — re-running a create
     // table would have failed the second run outright — and every file is in
@@ -77,8 +77,8 @@ it('resumes from the first unapplied file on a second run and reaches the code v
     expect(array_count_values(appliedMigrations()))->each->toBe(1)
         ->and(Schema::hasTable('run_tags'))->toBeTrue()
         ->and(Schema::hasColumn('run_widgets', 'colour'))->toBeTrue()
-        ->and(runStatus()->storedVersion)->toBe(runCodeVersion())
-        ->and(runStatus()->owesWork())->toBeFalse();
+        ->and(statusOf(LIBRARY_PACKAGE)->storedVersion)->toBe(libraryVersion())
+        ->and(statusOf(LIBRARY_PACKAGE)->owesWork())->toBeFalse();
 });
 
 it('seeds once across a failed run and the run that finished it', function () {
@@ -88,14 +88,14 @@ it('seeds once across a failed run and the run that finished it', function () {
     registerRunPackage();
     MidRunFailure::arm();
 
-    expect(fn () => PluginUpdates::run(INSTALLED_PACKAGE))->toThrow(RuntimeException::class);
+    expect(fn () => PluginUpdates::run(LIBRARY_PACKAGE))->toThrow(RuntimeException::class);
 
     expect(Schema::hasTable(RunPackageSeeder::TABLE))->toBeTrue()
         ->and(seededRows())->toBe(0);
 
     MidRunFailure::disarm();
 
-    PluginUpdates::run(INSTALLED_PACKAGE);
+    PluginUpdates::run(LIBRARY_PACKAGE);
 
     expect(seededRows())->toBe(1);
 });

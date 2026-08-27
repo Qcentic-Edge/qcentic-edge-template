@@ -15,6 +15,9 @@ use QcenticEdge\PluginUpdates\PluginUpdatesServiceProvider;
  * with a panel ever draws the notice. Package discovery is off as well as the
  * provider list being bare, so neither Filament nor Livewire can arrive by the
  * back door and make the assertions here accidentally true.
+ *
+ * Neither half of the notice's requirements is present here. For the host that
+ * has one of them and not the other, see `LivewireOnlyTestCase`.
  */
 abstract class PanellessTestCase extends Orchestra
 {
