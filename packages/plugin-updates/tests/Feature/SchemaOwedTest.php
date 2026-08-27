@@ -51,7 +51,7 @@ it('reads schema state from the migrator and never from the stored version', fun
 
     $status = historyStatus();
 
-    expect($status->installedVersion)->toBeNull()
+    expect($status->storedVersion)->toBeNull()
         ->and($status->versionsBehind())->toBe(5)
         ->and($status->schemaOwed())->toBeFalse();
 });

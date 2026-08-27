@@ -61,25 +61,32 @@ final class ReleaseManifest
     }
 
     /**
-     * Every release above the version the database is at, oldest first.
+     * The releases that are pending: above the version the database is at, and
+     * at or below the version of the code that is deployed.
+     *
+     * Both bounds are load-bearing. Without the lower one a site would re-owe
+     * work it has already done; without the upper one a manifest row added
+     * before the `composer.json` bump — the exact ordering the one-row
+     * developer checklist invites — would be reported as owed by a site whose
+     * code has not reached that release and cannot run it.
      *
      * A package with no stored version has never recorded one, so it is
-     * treated as being below the oldest release and every entry is pending.
+     * treated as being below the oldest release and every entry is pending. A
+     * package whose code version is unknown has nothing to bound against, so
+     * the upper bound is not applied at all.
+     *
      * Note this says nothing about schema: an already-deployed site whose
      * migrations are all applied still reports no schema work, because that
      * answer comes from the migrator and not from here.
      *
-     * @return list<string>
+     * @return list<string> oldest first
      */
-    public function releasesAbove(?string $storedVersion): array
+    public function pendingBetween(?string $storedVersion, ?string $codeVersion): array
     {
-        if ($storedVersion === null) {
-            return $this->versions();
-        }
-
         return array_values(array_filter(
             $this->versions(),
-            fn (string $version) => version_compare($version, $storedVersion, '>'),
+            fn (string $version) => ($storedVersion === null || version_compare($version, $storedVersion, '>'))
+                && ($codeVersion === null || version_compare($version, $codeVersion, '<=')),
         ));
     }
 

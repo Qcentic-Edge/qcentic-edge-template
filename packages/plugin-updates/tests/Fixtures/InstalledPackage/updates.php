@@ -10,8 +10,6 @@
  * library's own composer.json rather than hard-coded — bumping the library
  * must not quietly turn this fixture into a version gap.
  */
-$version = json_decode(file_get_contents(__DIR__.'/../../../composer.json'), true)['version'];
-
 return [
-    $version => ['seed' => false],
+    libraryComposer()['version'] => ['seed' => false],
 ];

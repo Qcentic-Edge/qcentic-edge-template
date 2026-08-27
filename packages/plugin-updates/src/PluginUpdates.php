@@ -4,8 +4,8 @@ namespace QcenticEdge\PluginUpdates;
 
 use QcenticEdge\PluginUpdates\Ledger\VersionLedger;
 use QcenticEdge\PluginUpdates\Registry\PackageRegistry;
-use QcenticEdge\PluginUpdates\Report\UpdateReport;
 use QcenticEdge\PluginUpdates\Registry\UpdatablePackage;
+use QcenticEdge\PluginUpdates\Report\UpdateReport;
 
 /**
  * The entry point a package calls from its own service provider:

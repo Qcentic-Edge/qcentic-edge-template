@@ -12,6 +12,9 @@ uses(TestCase::class)->in('Feature', 'Unit');
 uses(RefreshDatabase::class)->in('Feature');
 
 const HISTORY_PACKAGE = 'qcentic-edge/history-plugin';
+const INSTALLED_PACKAGE = 'qcentic-edge/plugin-updates';
+const OUT_OF_ORDER_PACKAGE = 'qcentic-edge/out-of-order-plugin';
+const BROKEN_PACKAGE = 'qcentic-edge/broken-plugin';
 
 function fixturePackagePath(string $path = ''): string
 {
@@ -37,19 +40,6 @@ function registerFixturePackage(string $name = 'qcentic-edge/fixture-plugin'): U
     return $package;
 }
 
-
-/*
-|--------------------------------------------------------------------------
-| The history fixture
-|--------------------------------------------------------------------------
-|
-| A package with five releases and four migration files, so a test can place a
-| database at any point in that history and ask the report what the site owes.
-| The multi-version path is the one exercised least in development and most in
-| the field, so it is the one that gets a fixture of its own.
-|
-*/
-
 function historyPackagePath(string $path = ''): string
 {
     return rtrim(__DIR__.'/Fixtures/HistoryPackage/'.$path, '/');
@@ -65,6 +55,13 @@ function installedPackagePath(string $path = ''): string
     return rtrim(__DIR__.'/Fixtures/InstalledPackage/'.$path, '/');
 }
 
+/**
+ * The history fixture: a package with five releases and four migration files,
+ * so a test can place a database at any point in that history and ask the
+ * report what the site owes. The multi-version path is the one exercised least
+ * in development and most in the field, so it is the one that gets a fixture of
+ * its own.
+ */
 function registerHistoryPackage(string $name = HISTORY_PACKAGE): UpdatablePackage
 {
     $package = UpdatablePackage::make($name)
@@ -73,6 +70,55 @@ function registerHistoryPackage(string $name = HISTORY_PACKAGE): UpdatablePackag
         ->migrations(historyPackagePath('migrations'))
         ->seeder(FixtureSeeder::class)
         ->tables(['history_widgets', 'history_notes', 'history_tags']);
+
+    PluginUpdates::register($package);
+
+    return $package;
+}
+
+/**
+ * A package that really is installed under a Composer name, so a test can put
+ * the stored version, the code version and the newest release all at the same
+ * point. The library itself is the only package guaranteed to be installed
+ * while its own suite runs, so it stands in for one.
+ */
+function registerInstalledPackage(?string $manifest = null): UpdatablePackage
+{
+    $package = UpdatablePackage::make(INSTALLED_PACKAGE)
+        ->title('Plugin Updates')
+        ->manifest($manifest ?? installedPackagePath('updates.php'))
+        ->migrations(historyPackagePath('migrations'));
+
+    PluginUpdates::register($package);
+
+    return $package;
+}
+
+/**
+ * A package whose manifest lists its releases in no particular order and spans
+ * the version whose string ordering disagrees with its version ordering.
+ */
+function registerOutOfOrderPackage(): UpdatablePackage
+{
+    $package = UpdatablePackage::make(OUT_OF_ORDER_PACKAGE)
+        ->title('Out Of Order Plugin')
+        ->manifest(outOfOrderPackagePath('updates.php'));
+
+    PluginUpdates::register($package);
+
+    return $package;
+}
+
+/**
+ * A package that declared a manifest the library cannot read. Defaults to a
+ * path with no file at it; pass one to a file that is not a set of releases to
+ * get the other half of the failure.
+ */
+function registerBrokenPackage(?string $manifest = null, string $name = BROKEN_PACKAGE): UpdatablePackage
+{
+    $package = UpdatablePackage::make($name)
+        ->title('Broken Plugin')
+        ->manifest($manifest ?? historyPackagePath('nowhere.php'));
 
     PluginUpdates::register($package);
 
@@ -147,7 +193,23 @@ function placeHistoryAt(string $release, string $name = HISTORY_PACKAGE): void
 /** What the report says the history fixture owes. */
 function historyStatus(string $name = HISTORY_PACKAGE): PackageStatus
 {
-    return PluginUpdates::report()->status($name);
+    return PluginUpdates::report()->status($name)
+        ?? throw new RuntimeException("No package [{$name}] is registered; a test that asks "
+            .'what the history fixture owes has to call registerHistoryPackage() first.');
+}
+
+/**
+ * The row-count queries logged since the query log was enabled, so a test can
+ * assert what the cheap question does not pay for.
+ *
+ * @return list<array<string, mixed>>
+ */
+function countingQueries(): array
+{
+    return array_values(array_filter(
+        DB::getQueryLog(),
+        fn (array $query) => str_contains(strtolower($query['query']), 'count(*)'),
+    ));
 }
 
 /** This library's own composer.json, decoded. */

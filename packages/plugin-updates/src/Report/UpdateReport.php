@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use QcenticEdge\PluginUpdates\Ledger\VersionLedger;
 use QcenticEdge\PluginUpdates\Manifest\ReleaseManifest;
+use QcenticEdge\PluginUpdates\Manifest\UnreadableManifest;
 use QcenticEdge\PluginUpdates\Registry\PackageRegistry;
 use QcenticEdge\PluginUpdates\Registry\UpdatablePackage;
 use QcenticEdge\PluginUpdates\Schema\PendingMigrations;
@@ -34,7 +35,7 @@ final class UpdateReport
     /** @return array<string, PackageStatus> keyed by package name, in registration order */
     public function all(): array
     {
-        return array_map($this->statusOf(...), $this->registry->all());
+        return iterator_to_array($this->statuses());
     }
 
     public function status(string $package): ?PackageStatus
@@ -50,11 +51,17 @@ final class UpdateReport
         return array_filter($this->all(), fn (PackageStatus $status) => $status->owesWork());
     }
 
-    /** Short-circuits on the first package with work, for a badge on every page. */
+    /**
+     * Short-circuits on the first package with work, for a badge on every page.
+     *
+     * The same derivation as `owing()`, walked one package at a time so it can
+     * stop early rather than a second, cheaper reading of update state — there
+     * is only ever one.
+     */
     public function anythingOwed(): bool
     {
-        foreach ($this->registry->all() as $package) {
-            if ($this->statusOf($package)->owesWork()) {
+        foreach ($this->statuses() as $status) {
+            if ($status->owesWork()) {
                 return true;
             }
         }
@@ -62,22 +69,55 @@ final class UpdateReport
         return false;
     }
 
+    /**
+     * Every registered package's status, one at a time. Lazy so that the
+     * question "does anything owe work" can stop at the first yes.
+     *
+     * @return iterable<string, PackageStatus>
+     */
+    private function statuses(): iterable
+    {
+        foreach ($this->registry->all() as $name => $package) {
+            yield $name => $this->statusOf($package);
+        }
+    }
+
+    /**
+     * One package's status. A manifest this package declared but the library
+     * cannot read is that package's problem and no other package's: it is
+     * surfaced as a broken status here rather than thrown, so that one
+     * misdeclared package cannot take down the panel that was going to report
+     * it. `ReleaseManifest` still refuses to read a broken manifest as empty —
+     * that would report a package four releases behind as owing nothing.
+     */
     private function statusOf(UpdatablePackage $package): PackageStatus
     {
-        $manifest = ReleaseManifest::read($package->manifestPath());
-
         $storedVersion = $this->ledger->storedVersion($package->name());
-        $pendingVersions = $manifest->releasesAbove($storedVersion);
+        $codeVersion = $package->codeVersion();
+
+        try {
+            $manifest = ReleaseManifest::read($package->manifestPath());
+        } catch (UnreadableManifest $failure) {
+            return PackageStatus::broken(
+                name: $package->name(),
+                title: $package->displayTitle(),
+                storedVersion: $storedVersion,
+                codeVersion: $codeVersion,
+                problem: $failure->getMessage(),
+            );
+        }
+
+        $pendingVersions = $manifest->pendingBetween($storedVersion, $codeVersion);
 
         return new PackageStatus(
             name: $package->name(),
             title: $package->displayTitle(),
-            installedVersion: $storedVersion,
-            codeVersion: $package->codeVersion(),
+            storedVersion: $storedVersion,
+            codeVersion: $codeVersion,
             pendingVersions: $pendingVersions,
             pendingMigrations: $this->migrations->inPath($package->migrationPath()),
             seedingVersions: $manifest->seedingAmong($pendingVersions),
-            tables: array_map($this->countRows(...), $package->tableNames()),
+            countTables: fn (): array => array_map($this->countRows(...), $package->tableNames()),
         );
     }
 

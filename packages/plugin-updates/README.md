@@ -116,10 +116,18 @@ Laravel's own `migrations` ledger, diffed against that package's migration path 
 the manifest and the database can never disagree about what has been applied. Writing
 the migration file *is* the declaration.
 
-Every entry above the stored version is pending and their flags are unioned: if any
-pending release says `seed: true`, the seeder is owed once, however many of them asked.
-A site several releases behind is the normal condition, not the exceptional one, so
-reading only the newest entry would lose data a skipped release meant to add.
+An entry is pending when it is above the stored version and at or below the code version,
+and the flags of the pending entries are unioned: if any pending release says
+`seed: true`, the seeder is owed once, however many of them asked. A site several
+releases behind is the normal condition, not the exceptional one, so reading only the
+newest entry would lose data a skipped release meant to add.
+
+Both bounds matter. The lower one keeps a site from re-owing work it has already done.
+The upper one means a row added before the `composer.json` bump — the order this
+one-row checklist invites — is not reported as owed by a site whose deployed code has
+not reached that release and could not run its work anyway. A package whose code version
+Composer cannot resolve has nothing to bound against, so every entry above the stored
+version is pending.
 
 Releases are ordered by version, not by string, so a manifest listing `0.10.0` before
 `0.9.0` — or in no order at all — still reports correctly. A manifest that is missing or
@@ -147,23 +155,25 @@ PluginUpdates::report()->owing();                           // only the packages
 PluginUpdates::report()->anythingOwed();                    // for a badge
 ```
 
-A `PackageStatus` is a readonly result object:
+A `PackageStatus` is a result object, read once and answered in full:
 
 | Member | Type | Meaning |
 |---|---|---|
 | `$name` | `string` | Composer package name |
 | `$title` | `string` | the name the operator sees |
-| `$installedVersion` | `?string` | the version this package's database is at; `null` when it has never recorded one |
+| `$storedVersion` | `?string` | the version this package's database is at, as the ledger recorded it; `null` when it has never recorded one |
 | `$codeVersion` | `?string` | the version of the code deployed |
-| `$pendingVersions` | `list<string>` | manifest releases above the stored version, oldest first |
+| `$pendingVersions` | `list<string>` | manifest releases above the stored version and at or below the code version, oldest first |
 | `$pendingMigrations` | `list<string>` | unapplied migration names in this package's own path, in run order |
 | `$seedingVersions` | `list<string>` | the pending releases that asked for a seed |
-| `$tables` | `list<TableCount>` | the declared tables, each with `$name` and `$rows` (`null` when the table does not exist yet) |
+| `$problem` | `?string` | why this package could not be reported on; `null` when it could |
+| `tables()` | `list<TableCount>` | the declared tables, each with `$name` and `$rows` (`null` when the table does not exist yet) |
 | `versionsBehind()` | `int` | how many releases the database is catching up |
 | `schemaOwed()` | `bool` | `$pendingMigrations !== []` |
 | `seedOwed()` | `bool` | `$seedingVersions !== []` |
-| `owesWork()` | `bool` | schema owed or seed owed |
-| `owesNothing()` | `bool` | the inverse — a package that owes nothing says nothing |
+| `codeVersionKnown()` | `bool` | whether Composer knows the deployed version, so there is one to advance the stored version to |
+| `isBroken()` | `bool` | this package's own manifest could not be read; `$problem` says how |
+| `owesWork()` | `bool` | broken, schema owed, or seed owed |
 
 The report is the only way to read update state. Nothing else in the system queries it
 directly, and nothing reimplements any part of it.
@@ -183,6 +193,21 @@ release ever mentioned still surfaces — undeclared schema work is never skippe
 and whose pending releases all decline a seed owes nothing, however many releases behind
 it is. `versionsBehind()` is what the operator is told to expect; `owesWork()` is what
 decides whether there is a button.
+
+Two more are worth stating for anything that renders the report.
+
+**Row counts are counted only when asked.** `tables()` runs its counts on the first call
+and remembers them for the life of that status object; building a status counts nothing.
+A badge on every page of the panel asks `anythingOwed()` and must not pay for a count
+sweep of every declared table of every registered package to get a yes or a no.
+
+**A package whose manifest cannot be read is broken, not quiet.** The failure belongs to
+that package alone: `isBroken()` is true, `$problem` carries the message naming the file
+and what is wrong with it, `owesWork()` is true so the package is never mistaken for an
+up-to-date one, and every other package still reports normally beside it. It reports no
+pending versions, no pending migrations and no seeds, because what it owes is exactly
+what could not be read. A renderer should show it as needing attention rather than as
+work to run.
 
 ### The version ledger
 

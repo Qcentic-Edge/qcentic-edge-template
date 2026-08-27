@@ -17,7 +17,7 @@ it('reports both the gap and both unapplied files two versions behind', function
 
     $status = historyStatus();
 
-    expect($status->installedVersion)->toBe('0.3.0')
+    expect($status->storedVersion)->toBe('0.3.0')
         ->and($status->pendingVersions)->toBe(['0.4.0', '0.5.0'])
         ->and($status->versionsBehind())->toBe(2)
         ->and($status->pendingMigrations)->toBe([
@@ -81,7 +81,6 @@ it('owes nothing across a version gap when the path is applied and no release wa
         ->and($status->schemaOwed())->toBeFalse()
         ->and($status->seedOwed())->toBeFalse()
         ->and($status->owesWork())->toBeFalse()
-        ->and($status->owesNothing())->toBeTrue()
         ->and(PluginUpdates::report()->owing())->toBe([]);
 });
 
@@ -90,38 +89,24 @@ it('treats a package with no stored version as being at the oldest release', fun
 
     $status = historyStatus();
 
-    expect($status->installedVersion)->toBeNull()
+    expect($status->storedVersion)->toBeNull()
         ->and($status->pendingVersions)->toBe(['0.1.0', '0.2.0', '0.3.0', '0.4.0', '0.5.0'])
         ->and($status->versionsBehind())->toBe(5)
         ->and($status->seedOwed())->toBeTrue();
 });
 
-it('sorts a manifest listed out of order by version rather than by string', function () {
-    PluginUpdates::register(
-        UpdatablePackage::make('qcentic-edge/out-of-order-plugin')
-            ->title('Out Of Order Plugin')
-            ->manifest(outOfOrderPackagePath('updates.php')),
-    );
+it('reports a manifest listed out of order in version order', function () {
+    // Version ordering itself is asserted on the manifest in ReleaseManifestTest.
+    // What this adds is that the order reaches the operator: the pending list
+    // and the gap the report hands to the page are in release order, with
+    // 0.10.0 above 0.9.0 rather than below it.
+    registerOutOfOrderPackage();
+    PluginUpdates::ledger()->record(OUT_OF_ORDER_PACKAGE, '0.2.0');
 
-    $status = PluginUpdates::report()->status('qcentic-edge/out-of-order-plugin');
+    $status = PluginUpdates::report()->status(OUT_OF_ORDER_PACKAGE);
 
-    expect($status->pendingVersions)->toBe(['0.1.0', '0.2.0', '0.9.0', '0.10.0'])
-        ->and($status->versionsBehind())->toBe(4);
-});
-
-it('counts 0.10.0 as above 0.9.0 rather than below it', function () {
-    PluginUpdates::register(
-        UpdatablePackage::make('qcentic-edge/out-of-order-plugin')
-            ->title('Out Of Order Plugin')
-            ->manifest(outOfOrderPackagePath('updates.php')),
-    );
-    PluginUpdates::ledger()->record('qcentic-edge/out-of-order-plugin', '0.9.0');
-
-    $status = PluginUpdates::report()->status('qcentic-edge/out-of-order-plugin');
-
-    expect($status->pendingVersions)->toBe(['0.10.0'])
-        ->and($status->versionsBehind())->toBe(1)
-        ->and($status->seedOwed())->toBeFalse();
+    expect($status->pendingVersions)->toBe(['0.9.0', '0.10.0'])
+        ->and($status->versionsBehind())->toBe(2);
 });
 
 it('collapses a multi-version gap into a single reported row', function () {
