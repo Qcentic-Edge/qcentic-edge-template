@@ -21,6 +21,27 @@ class InstallerTest extends TestCase
             ->assertSee('Database reachable');
     }
 
+    /**
+     * The checklist's update line comes from the update library's report, not
+     * from a scan of every migration path in the application. Before migrate the
+     * installer's own package owes its schema work and says so by name; after
+     * migrate it owes nothing and the line goes quiet.
+     */
+    public function test_the_checklist_reports_pending_package_updates_from_the_report(): void
+    {
+        $before = collect(InstallerState::checks())->firstWhere('label', 'Package updates');
+
+        $this->assertTrue($before['ok']);
+        $this->assertSame('1 package pending', $before['detail']);
+
+        InstallerState::migrate();
+
+        $after = collect(InstallerState::checks())->firstWhere('label', 'Package updates');
+
+        $this->assertTrue($after['ok']);
+        $this->assertSame('none pending', $after['detail']);
+    }
+
     public function test_installer_works_before_sessions_table_exists(): void
     {
         // defineEnvironment sets SESSION_DRIVER=database (production default).

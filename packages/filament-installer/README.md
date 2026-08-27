@@ -31,13 +31,25 @@ composer require qcentic-edge/filament-installer
 Private GitHub: add a VCS repository pointing at
 `https://github.com/Qcentic-Edge/filament-installer.git`.
 
+This package depends on `qcentic-edge/plugin-updates`, which arrives transitively and is
+resolved against the application's own repositories, so the app needs a path entry for it
+too:
+
+```json
+{
+    "type": "path",
+    "url": "../packages/plugin-updates"
+}
+```
+
 The service provider auto-registers and runs the package migration
 (`installer_locks`). Host apps that assign Spatie roles must also wire
 `installer.seeders` and listen for `InstallerUserCreated` (see below).
 
 ## Behavior
 
-- `GET /install` — checklist while unlocked; complete page after DB lock.
+- `GET /install` — checklist while unlocked; complete page after DB lock. The checklist's
+  **Package updates** line counts the packages the update library reports as owing work.
 - `POST /install` — migrate → configured seeders → optional first user → DB lock → complete page.
 - `POST /install/check` — if `INSTALLER_ENABLED=false`, redirect home; else stay on complete with an error.
 - Vite, Livewire (including hashed paths), and `/up` are never redirected.
@@ -92,7 +104,7 @@ Without `installer.seeders`, `assignRole('super_admin')` fails with
 The installer migrates once, then locks itself. When a plugin upgrade later ships a
 migration there is nowhere to run it — these apps are stateless containers with no shell
 and no persistent disk. Registering the panel plugin adds an **Updates** page for exactly
-that, the way WordPress asks to update its database after a plugin upgrade:
+that, the way WordPress lists plugins whose database is behind their code:
 
 ```php
 use QcenticEdge\FilamentInstaller\FilamentInstallerPlugin;
@@ -100,13 +112,37 @@ use QcenticEdge\FilamentInstaller\FilamentInstallerPlugin;
 $panel->plugin(FilamentInstallerPlugin::make());
 ```
 
-The page (Settings → Updates, `/updates`) lists every migration on disk that has not run,
-badges the sidebar with the count, and runs them behind a confirmation. Access is limited
-to `super_admin` when the user model offers `hasRole()`, and to any authenticated panel
-user otherwise — the same posture the installer itself takes.
+The page (Settings → Updates, `/updates`) lists **every package registered with
+`qcentic-edge/plugin-updates`**, one row each: the version its database is at, the version
+its code is at, what it owes, and the tables the work will touch with their row counts. A
+row that owes work carries its own Update button, so one plugin is updated without
+touching the others; a row that owes nothing says it is up to date and carries no button.
+A package the library would refuse to run — an unreadable manifest, a version Composer
+cannot resolve, a seed owed with no seeder declared — is shown as needing attention with
+the reason, rather than a button whose only effect would be that refusal. The sidebar
+badge counts the packages needing updates and clears when none do.
+
+A package several releases behind is one row showing the gap, not one row per release: the
+library replays the whole history in a single pass. A version gap on its own is never a
+button — a site that has simply never recorded a stored version owes nothing, and reads as
+up to date.
+
+Access is limited to `super_admin` when the user model offers `hasRole()`, and to any
+authenticated panel user otherwise — the same posture the installer itself takes, and read
+from `QcenticEdge\PluginUpdates\Access\Operator` so that this page and the library's own
+topbar notice cannot disagree about who may run an update. Nothing locks between two
+operators pressing Update at once; the confirmation says so.
+
+This package **does not scan other packages' migrations**. It used to, and could then only
+report that *something* somewhere was pending — which also meant every plugin shipping an
+upgrade had to assume the installer was there to finish it. Each package now declares
+itself to the shared library and this one is a renderer over the result. The installer
+declares itself the same way (`database/updates.php`, `database/migrations`,
+`installer_locks`) and appears in its own list.
 
 The install flow needs no panel, so this plugin object is optional. Without it the package
-is plain routes and Blade.
+is plain routes and Blade, and each package's own topbar notice is the surface an operator
+sees instead.
 
 ## Config
 
@@ -119,7 +155,23 @@ is plain routes and Blade.
 | `installer.required_env` | `APP_KEY, APP_URL, DB_CONNECTION, DB_URL` | env vars that must be non-empty |
 | `installer.create_user` | `true` (`INSTALLER_CREATE_USER`) | show name/email/password fields and create the first user |
 | `installer.user_model` | `App\Models\User` (`INSTALLER_USER_MODEL`) | model used for that user |
-| `installer.seeders` | `[]` | seeder classes run after migrate (e.g. `RoleSeeder`) |
+| `installer.seeders` | `[]` | seeder classes run after migrate (e.g. `RoleSeeder`) — first install only; per-package update seeds are the library's, not these |
+
+## Shipping a release of this package
+
+This package declares itself to `qcentic-edge/plugin-updates` like every other package,
+so it appears in its own Updates list rather than being the one plugin whose database
+nobody is watching. Shipping a release means adding one row to `database/updates.php`:
+
+```php
+return [
+    '0.4.0' => ['seed' => false],
+];
+```
+
+Seeds only — schema work is read from Laravel's migration ledger diffed against
+`database/migrations`, so writing the migration file is the declaration. Old migration
+files are history: never edited, never deleted.
 
 ## Tests
 

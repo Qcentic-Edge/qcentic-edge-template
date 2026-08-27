@@ -2,8 +2,9 @@
 
 namespace QcenticEdge\FilamentInstaller\Tests;
 
-use QcenticEdge\FilamentInstaller\FilamentInstallerServiceProvider;
 use Orchestra\Testbench\TestCase as Orchestra;
+use QcenticEdge\FilamentInstaller\FilamentInstallerServiceProvider;
+use QcenticEdge\PluginUpdates\PluginUpdatesServiceProvider;
 
 abstract class TestCase extends Orchestra
 {
@@ -32,7 +33,14 @@ abstract class TestCase extends Orchestra
 
     protected function getPackageProviders($app): array
     {
-        return [FilamentInstallerServiceProvider::class];
+        // Testbench boots this app from the package's own vendor dir, so the
+        // update library's provider is listed rather than discovered. Without
+        // it there is no shared registry, and the installer's own declaration
+        // in packageBooted() would have nowhere to go.
+        return [
+            PluginUpdatesServiceProvider::class,
+            FilamentInstallerServiceProvider::class,
+        ];
     }
 
     protected function defineRoutes($router): void

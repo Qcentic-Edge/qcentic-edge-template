@@ -5,6 +5,7 @@ namespace QcenticEdge\FilamentInstaller\Support;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use QcenticEdge\PluginUpdates\PluginUpdates;
 use Throwable;
 
 class InstallerState
@@ -71,7 +72,7 @@ class InstallerState
 
         $checks[] = self::databaseCheck();
         $checks[] = self::storageCheck();
-        $checks[] = self::migrationsCheck();
+        $checks[] = self::updatesCheck();
 
         return $checks;
     }
@@ -86,51 +87,6 @@ class InstallerState
         Artisan::call('migrate', ['--force' => true]);
 
         return Artisan::output();
-    }
-
-    /**
-     * Migration names that exist on disk but have not run yet.
-     *
-     * This is what the Updates page shows after first install: a plugin
-     * upgrade ships a migration, and the operator runs it from the panel
-     * rather than needing a shell on a stateless edge container.
-     *
-     * @return list<string>
-     */
-    public static function pendingMigrations(): array
-    {
-        try {
-            $migrator = app('migrator');
-            $repository = $migrator->getRepository();
-
-            if (! $repository->repositoryExists()) {
-                // Nothing has run yet, so everything on disk is pending.
-                return array_values(array_keys(self::migrationFiles()));
-            }
-
-            return array_values(array_diff(
-                array_keys(self::migrationFiles()),
-                $repository->getRan(),
-            ));
-        } catch (Throwable) {
-            return [];
-        }
-    }
-
-    /**
-     * Every migration the app can run: the application's own directory plus
-     * the paths each package registered with loadMigrationsFrom().
-     *
-     * @return array<string, string>  migration name => file path
-     */
-    protected static function migrationFiles(): array
-    {
-        $migrator = app('migrator');
-
-        return $migrator->getMigrationFiles(array_merge(
-            [database_path('migrations')],
-            $migrator->paths(),
-        ));
     }
 
     /**
@@ -196,24 +152,33 @@ class InstallerState
     }
 
     /**
+     * How many registered packages owe their database some work.
+     *
+     * Read from `PluginUpdates::report()`, which is the only way update state
+     * is read anywhere. The installer used to answer this by scanning every
+     * migration path in the application, which could say that *something* was
+     * pending and never which package owed it — and which quietly made every
+     * plugin depend on the installer to finish its own upgrade. Each package now
+     * declares itself to the shared library, the installer included, so this
+     * line names a count of packages rather than a count of files.
+     *
      * @return array{label: string, ok: bool, detail: string|null}
      */
-    protected static function migrationsCheck(): array
+    protected static function updatesCheck(): array
     {
         try {
-            // getMigrationFiles() is keyed by migration name and valued by
-            // path, while getRan() is a list of names — diffing them directly
-            // compares paths against names and reports everything as pending.
-            $count = count(self::pendingMigrations());
+            $count = count(PluginUpdates::report()->owing());
 
             return [
-                'label' => 'Pending migrations',
+                'label' => 'Package updates',
                 'ok' => true,
-                'detail' => $count === 0 ? 'none pending' : $count.' pending',
+                'detail' => $count === 0
+                    ? 'none pending'
+                    : $count.' '.str('package')->plural($count).' pending',
             ];
         } catch (Throwable $e) {
             return [
-                'label' => 'Pending migrations',
+                'label' => 'Package updates',
                 'ok' => false,
                 'detail' => $e->getMessage(),
             ];

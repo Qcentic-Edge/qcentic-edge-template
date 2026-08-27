@@ -7,19 +7,29 @@ use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
-use Illuminate\Contracts\Auth\Authenticatable;
-use QcenticEdge\FilamentInstaller\Support\InstallerState;
+use QcenticEdge\PluginUpdates\Access\Operator;
+use QcenticEdge\PluginUpdates\PluginUpdates;
+use QcenticEdge\PluginUpdates\Report\PackageStatus;
 use Throwable;
 use UnitEnum;
 
 /**
- * Database updates, from the panel.
+ * Database updates, from the panel — one row per plugin, the way WordPress
+ * lists them.
  *
- * The installer runs migrations once at first boot and then locks itself. When
- * a plugin upgrade later ships a migration there is nowhere to run it: these
- * apps are stateless edge containers with no shell and no persistent disk.
- * This page is that missing step — the panel equivalent of WordPress asking to
- * update its database after a plugin upgrade.
+ * These apps are stateless edge containers with no shell and no persistent
+ * disk, so a plugin upgrade that ships a migration has nowhere to run it. This
+ * page is that missing step. Each plugin declares itself to
+ * `qcentic-edge/plugin-updates`, and the operator sees what its database is at,
+ * what its code is at, what the pending work will touch and how many rows are
+ * in it — then updates one plugin without touching the others.
+ *
+ * It is a renderer and nothing else. Every question it asks goes to
+ * `PluginUpdates::report()`; it reads no registry, no version ledger and no
+ * migrator, and it reimplements no part of what the report answers. The
+ * installer used to scan every migration path in the application from here,
+ * which could only say that *something* was pending — and made every plugin
+ * depend on this package to finish its own upgrade. That is gone.
  */
 class Updates extends Page
 {
@@ -37,94 +47,105 @@ class Updates extends Page
 
     protected string $view = 'installer::filament.pages.updates';
 
-    /** @var list<string> */
-    public array $pending = [];
-
-    public ?string $output = null;
-
-    public function mount(): void
+    /**
+     * Every registered package and what it owes, read fresh on each render
+     * rather than held on the component.
+     *
+     * Two reasons, and both matter. A run returns nothing on purpose — what a
+     * package owes afterwards is read back through the report — so the list
+     * after a click has to be a new read, not a cached one nudged by hand. And
+     * a `PackageStatus` counts rows lazily behind a closure, which is not
+     * something Livewire could carry between requests anyway.
+     *
+     * @return array<string, PackageStatus>
+     */
+    public function statuses(): array
     {
-        $this->pending = InstallerState::pendingMigrations();
+        return PluginUpdates::report()->all();
     }
 
     public static function canAccess(): bool
     {
-        return static::isOperator(auth()->user());
+        return Operator::present();
     }
 
     /**
-     * Badge the sidebar when something is waiting, the way an update count
-     * works everywhere else.
+     * Badge the sidebar with the number of plugins needing an update.
+     *
+     * Packages, not migration files: what an operator acts on is a plugin, and
+     * a count of files could not be reconciled with a list of plugins. Note
+     * this counts what `owesWork()` says, never a version gap — a plugin whose
+     * database has simply never recorded a version is not behind on anything.
      */
     public static function getNavigationBadge(): ?string
     {
-        $count = count(InstallerState::pendingMigrations());
+        $count = count(PluginUpdates::report()->owing());
 
         return $count > 0 ? (string) $count : null;
     }
 
+    /**
+     * A colour rather than a second reading of the report. The panel only shows
+     * this where `getNavigationBadge()` returned a count, and building the whole
+     * report twice on every page of the panel to re-answer a question the badge
+     * has already answered is a sweep of every declared table of every package
+     * for a value nothing will use.
+     */
     public static function getNavigationBadgeColor(): ?string
     {
-        return count(InstallerState::pendingMigrations()) > 0 ? 'warning' : null;
+        return 'warning';
     }
 
-    public function runAction(): Action
+    /**
+     * One action, reused per row through its arguments, so the page does not
+     * grow a method per registered package.
+     *
+     * Rendered only where the report says a run would go ahead. A package that
+     * owes work the library would refuse to run carries `unrunnableReason()`
+     * instead of a button, because a click there would only ever produce the
+     * refusal.
+     */
+    public function updateAction(): Action
     {
-        return Action::make('run')
-            ->label('Run updates')
+        return Action::make('update')
+            ->label('Update')
             ->icon(Heroicon::OutlinedArrowPath)
             ->color('primary')
             ->requiresConfirmation()
-            ->modalHeading('Run pending database updates')
-            ->modalDescription('Migrations run against the live database. Take a backup first if the plugin release notes call for one.')
-            ->modalSubmitActionLabel('Run updates')
-            ->disabled(fn (): bool => $this->pending === [])
-            ->action(function (): void {
-                if (! static::isOperator(auth()->user())) {
-                    abort(403);
-                }
+            ->modalHeading(fn (array $arguments): string => 'Update '.$this->titleOf($arguments['package']))
+            ->modalDescription('Migrations run against the live database. Take a backup first if the release notes '
+                .'call for one, and make sure nobody else is updating this plugin at the same time — nothing here '
+                .'stops two operators running it at once.')
+            ->modalSubmitActionLabel('Update')
+            ->action(function (array $arguments): void {
+                abort_unless(Operator::present(), 403);
+
+                $package = $arguments['package'];
+                $title = $this->titleOf($package);
 
                 try {
-                    $this->output = trim(InstallerState::migrate());
-                } catch (Throwable $e) {
-                    $this->output = $e->getMessage();
-
+                    PluginUpdates::run($package);
+                } catch (Throwable $failure) {
                     Notification::make()
                         ->danger()
-                        ->title('Update failed')
-                        ->body($e->getMessage())
+                        ->title($title.' was not updated')
+                        ->body($failure->getMessage())
                         ->persistent()
                         ->send();
 
                     return;
                 }
 
-                $before = count($this->pending);
-                $this->pending = InstallerState::pendingMigrations();
-
                 Notification::make()
                     ->success()
-                    ->title('Database updated')
-                    ->body($before.' '.str('migration')->plural($before).' ran.')
+                    ->title($title.' is up to date')
                     ->send();
             });
     }
 
-    /**
-     * Only a super admin runs migrations. Falls back to "any authenticated
-     * panel user" on an app with no role package, which is the same posture
-     * the installer itself takes.
-     */
-    protected static function isOperator(?Authenticatable $user): bool
+    /** The name the operator sees, read back through the report like everything else. */
+    private function titleOf(string $package): string
     {
-        if ($user === null) {
-            return false;
-        }
-
-        if (method_exists($user, 'hasRole')) {
-            return (bool) $user->hasRole('super_admin');
-        }
-
-        return true;
+        return PluginUpdates::report()->status($package)?->title ?? $package;
     }
 }
