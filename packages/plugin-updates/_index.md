@@ -11,7 +11,7 @@ this library for reporting alone never has to boot a panel.
 
 ## Files
 - `composer.json` — `qcentic-edge/plugin-updates`
-- `README.md` — installation as a path repository, registering a package, the manifest, the report, running an update, the topbar notice, the ledger
+- `README.md` — installation as a path repository, registering a package (in `packageBooted()`, never `packageRegistered()`), the manifest, the end-of-release checklist and the four rules a consuming package must not break, the report, running an update, the topbar notice, the ledger
 - `phpunit.xml` — Pest suite (Feature + Unit + Host)
 
 ## Subdirectories

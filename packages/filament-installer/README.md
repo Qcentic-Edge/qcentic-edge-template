@@ -122,10 +122,17 @@ cannot resolve, a seed owed with no seeder declared — is shown as needing atte
 the reason, rather than a button whose only effect would be that refusal. The sidebar
 badge counts the packages needing updates and clears when none do.
 
+Both readings of the report are guarded. The badge is rendered on every page of the panel,
+so a database the report cannot reach drops the badge rather than returning a 500 for the
+whole panel; the page itself says the update status is unavailable, and why, rather than
+rendering an empty list that would read as every plugin being up to date.
+
 A package several releases behind is one row showing the gap, not one row per release: the
-library replays the whole history in a single pass. A version gap on its own is never a
-button — a site that has simply never recorded a stored version owes nothing, and reads as
-up to date.
+library replays the whole history in a single pass. The sentence that names the gap comes
+from the report — `PackageStatus::behindSummary()` — so this page and the library's own
+topbar notice describe the same gap in the same words rather than in two copies of one
+cascade. A version gap on its own is never a button — a site that has simply never
+recorded a stored version owes nothing, and reads as up to date.
 
 Access is limited to `super_admin` when the user model offers `hasRole()`, and to any
 authenticated panel user otherwise — the same posture the installer itself takes, and read

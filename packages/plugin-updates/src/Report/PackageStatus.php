@@ -4,6 +4,7 @@ namespace QcenticEdge\PluginUpdates\Report;
 
 use Closure;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Str;
 use QcenticEdge\PluginUpdates\Runner\UnrunnablePackage;
 
 /**
@@ -234,5 +235,27 @@ final class PackageStatus
     public function needsAttention(): bool
     {
         return $this->owesWork() && ! $this->runnable();
+    }
+
+    /**
+     * How far behind this package's database is, in a sentence fit to show an
+     * operator. Named here for the same reason as `needsAttention()`: both
+     * renderers had grown their own copy of this cascade, in two templating
+     * languages, and two copies of a sentence are two sentences waiting to
+     * disagree.
+     *
+     * A version gap is not the only way to owe work — a package with unapplied
+     * migrations and no pending release is behind on schema without being
+     * behind on releases — so zero releases behind still has something to say.
+     * Only a renderer that has already decided this package owes work should
+     * ask; for one that owes nothing the sentence is true and pointless.
+     */
+    public function behindSummary(): string
+    {
+        if ($this->versionsBehind() === 0) {
+            return 'Database update pending';
+        }
+
+        return $this->versionsBehind().' '.Str::plural('release', $this->versionsBehind()).' behind';
     }
 }

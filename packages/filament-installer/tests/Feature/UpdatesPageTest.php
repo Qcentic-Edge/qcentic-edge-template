@@ -13,6 +13,8 @@ use QcenticEdge\FilamentInstaller\Tests\Fixtures\User;
 use QcenticEdge\FilamentInstaller\Tests\PanelTestCase;
 use QcenticEdge\PluginUpdates\PluginUpdates;
 use QcenticEdge\PluginUpdates\Registry\UpdatablePackage;
+use QcenticEdge\PluginUpdates\Report\UpdateReport;
+use RuntimeException;
 
 /**
  * The installer's Updates page, driven through Livewire — the second of the two
@@ -39,6 +41,25 @@ class UpdatesPageTest extends PanelTestCase
      * its name is free to stand in for a plugin.
      */
     private const BEHIND = 'qcentic-edge/plugin-updates';
+
+    /**
+     * How the Update button gives itself away in a rendered row: the wire call
+     * that mounting the page's one action produces.
+     *
+     * One spelling, asserted both ways, because the obvious spellings are each
+     * wrong in their own direction. The bare word `Update` can pass or fail for
+     * reasons that have nothing to do with a button — a class name, a heading,
+     * or a package whose title happens to contain it. `>Update<` never appears
+     * at all: Filament renders the label on its own line inside the button, so
+     * a negative assertion on it can never fail and a positive one can never
+     * pass. This string appears exactly where the action is rendered and
+     * nowhere else, so the positive case here proves the negative cases are not
+     * vacuous.
+     */
+    private const UPDATE_BUTTON = "mountAction('update'";
+
+    /** What a report that cannot be read says, so the page can be shown to pass it on. */
+    private const REPORT_FAILURE = 'the database went away';
 
     protected function setUp(): void
     {
@@ -103,7 +124,7 @@ class UpdatesPageTest extends PanelTestCase
         $row = $this->rowFor(self::INSTALLER);
 
         $this->assertStringContainsString('Up to date', $row);
-        $this->assertStringNotContainsString('Update', $row);
+        $this->assertStringNotContainsString(self::UPDATE_BUTTON, $row);
         $this->assertNull(Updates::getNavigationBadge());
     }
 
@@ -135,7 +156,7 @@ class UpdatesPageTest extends PanelTestCase
 
         $row = $this->rowFor(self::BEHIND, $html);
         $this->assertStringContainsString('3 releases behind', $row);
-        $this->assertStringContainsString('Update', $row);
+        $this->assertStringContainsString(self::UPDATE_BUTTON, $row);
     }
 
     public function test_the_row_shows_the_versions_and_the_tables_the_work_will_touch(): void
@@ -210,7 +231,7 @@ class UpdatesPageTest extends PanelTestCase
 
         $this->assertStringContainsString('Needs attention', $row);
         $this->assertStringContainsString('cannot be updated', $row);
-        $this->assertStringNotContainsString('>Update<', $row);
+        $this->assertStringNotContainsString(self::UPDATE_BUTTON, $row);
     }
 
     public function test_a_package_that_declared_no_tables_renders_without_one(): void
@@ -231,6 +252,45 @@ class UpdatesPageTest extends PanelTestCase
         $this->assertStringNotContainsString('—', $row);
     }
 
+    /**
+     * A database blip costs the operator the list, never the panel.
+     *
+     * This is the sharp end of the whole page. The badge is rendered on *every*
+     * page of the panel, and reading the report touches the database before it
+     * has said anything — the version ledger asks whether its own table exists,
+     * the pending-migration diff asks the migrator whether its repository does.
+     * An unguarded read there does not lose a badge, it returns a 500 for the
+     * entire panel, including the screens that have nothing to do with updates.
+     * The page itself has the milder version of the same duty: it must say it
+     * could not read the report rather than either dying or, worse, rendering
+     * an empty list that reads as "every plugin is fine".
+     *
+     * The failure is injected at the report rather than by pulling the database
+     * out from under the request, because where in the read it came from is
+     * exactly what neither reader is allowed to care about.
+     */
+    public function test_a_report_that_cannot_be_read_costs_the_list_and_not_the_panel(): void
+    {
+        $this->asOperator();
+        $this->applyEveryLoadedMigration();
+        $this->registerBehindPackage();
+
+        // Owing a real update first, so the badge is being cleared by the
+        // failure rather than by there being nothing to count.
+        $this->assertSame('1', Updates::getNavigationBadge());
+
+        $this->breakTheReport();
+
+        $this->assertNull(Updates::getNavigationBadge());
+
+        $html = Livewire::test(Updates::class)->assertOk()->html();
+
+        $this->assertStringContainsString('Update status is unavailable', $html);
+        $this->assertStringContainsString(self::REPORT_FAILURE, $html);
+        $this->assertStringNotContainsString('Everything is up to date', $html);
+        $this->assertStringNotContainsString(self::UPDATE_BUTTON, $html);
+    }
+
     private function asOperator(): void
     {
         $this->actingAs(User::create(['name' => 'Op', 'email' => 'op@example.test']));
@@ -244,6 +304,17 @@ class UpdatesPageTest extends PanelTestCase
     private function applyEveryLoadedMigration(): void
     {
         InstallerState::migrate();
+    }
+
+    /**
+     * Stand in for a database that has gone away mid-request: every route to
+     * the report now throws, whichever of its reads the caller wanted.
+     */
+    private function breakTheReport(): void
+    {
+        $this->app->bind(UpdateReport::class, function (): never {
+            throw new RuntimeException(self::REPORT_FAILURE);
+        });
     }
 
     private function registerBehindPackage(): void

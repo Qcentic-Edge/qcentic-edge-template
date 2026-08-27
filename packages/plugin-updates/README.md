@@ -65,27 +65,43 @@ until a package declares the dependency, at which point Composer resolves it fro
 path.
 
 Laravel's package discovery registers `PluginUpdatesServiceProvider`, so there is nothing
-to add to `config/app.php` and no panel wiring of any kind.
+to add to `config/app.php` and no panel wiring of any kind. That provider extends Spatie's
+`PackageServiceProvider`, like every other first-party package here — it ships the two
+Blade views the topbar notice renders, and `->hasViews()` is what that base class is for.
+It ships no config, no translations and no migrations of its own.
 
 ## Usage
 
 ### Registering a package
 
-One call, from the package's own service provider:
+One call, from the package's own service provider — in `packageBooted()`, never in
+`packageRegistered()`:
 
 ```php
 use QcenticEdge\PluginUpdates\PluginUpdates;
 use QcenticEdge\PluginUpdates\Registry\UpdatablePackage;
 
-PluginUpdates::register(
-    UpdatablePackage::make('qcentic-edge/filament-seo')
-        ->title('SEO')
-        ->manifest(__DIR__.'/../database/updates.php')
-        ->migrations(__DIR__.'/../database/migrations')
-        ->seeder(SeoSeeder::class)
-        ->tables(['seo_meta', 'seo_settings']),
-);
+public function packageBooted(): void
+{
+    PluginUpdates::register(
+        UpdatablePackage::make('qcentic-edge/filament-seo')
+            ->title('SEO')
+            ->manifest(__DIR__.'/../database/updates.php')
+            ->migrations(__DIR__.'/../database/migrations')
+            ->seeder(SeoSeeder::class)
+            ->tables(['seo_meta', 'seo_settings']),
+    );
+}
 ```
+
+**Boot, not register.** This library binds its registry as a singleton during its own
+`register()`, and provider order is not a consuming package's to choose. Registering
+earlier can land the declaration in an instance that is later discarded, and the package
+then silently reports its database as up to date. All ten first-party packages do it in
+`packageBooted()` for that reason.
+
+Registering does no work of any kind: it reads no database, runs nothing, and touches no
+schema.
 
 Package name and manifest are what every package declares; the title defaults to the
 package name. Registering without a manifest throws `IncompleteDeclaration` there and
@@ -149,9 +165,51 @@ owing nothing.
 There is no assets flag: assets are overwritten wholesale by the deploy and can never
 be owed at runtime.
 
-Old migration files are history. They are never edited and never deleted, because a
-database several versions behind can only climb if every historical step is still on
-disk in the current release.
+### Shipping a release
+
+At the end of any change to a consuming package, three things and no more:
+
+1. Bump `version` in that package's `composer.json`. That is the code version, and the
+   version a successful run records as the database's new version.
+2. Add one row to its manifest, keyed by the version you just wrote.
+3. Answer `seed`: does this release need the package's seeder run to be correct? If yes,
+   the package must declare a seeder, and that seeder must be idempotent.
+
+Bump the version before or with the manifest row. A row above the deployed code version
+is not reported as owed, so a row added ahead of the bump is simply invisible until the
+bump lands.
+
+Nothing here mentions schema. Writing the migration file is the declaration.
+
+### Four rules for a consuming package
+
+Each of these is invisible in the code and expensive to break, and none of them will
+fail on a developer's own site — which is never more than one release behind.
+
+**Old migration files are history. They are never edited and never deleted.** A database
+several versions behind can only climb if every historical step is still on disk in the
+current release. Folding an old migration's effect into a create-table file, or editing
+one to match a newer schema, silently strands every site that has not yet run it. New
+schema work is always a new file.
+
+**Never publish a first-party package's migrations.** The whole mechanism rests on
+Laravel's ledger and this library's directory glob agreeing on a migration's *name*.
+Spatie's `runsMigrations()` keeps them in step by loading the package's own files under
+their bare basenames. `vendor:publish --tag=<package>-migrations` writes a freshly
+timestamped copy into the application's own migration directory; Laravel records the
+timestamped name, the glob still computes the original basename, the two diverge — and
+that package reports as owing its entire history on a database that already has the
+schema.
+
+**This library must never grow a map from migration file to release.** It would be a
+third hand-maintained copy of a fact the ledger already holds, drifting the same way the
+rejected schema flag would, and it would buy nothing: the operator already sees the
+version gap from the stored and code versions, and the size of the job from the row
+counts of the declared tables.
+
+**Never require `qcentic-edge/filament-installer` from a package.** The dependency arrow
+points at this library and never at the installer. A package reports itself whether or
+not an installer is present — that is the entire point of the arrangement.
 
 ### The update report
 
@@ -191,6 +249,7 @@ A `PackageStatus` is a result object, read once and answered in full:
 | `refusal()` | `?UnrunnablePackage` | the refusal a run would make, built and handed back unthrown; `null` when it would go ahead |
 | `unrunnableReason()` | `?string` | that refusal's message, fit to show an operator; `null` when it would go ahead |
 | `needsAttention()` | `bool` | owes work and cannot run it — the third state, and the one with no button |
+| `behindSummary()` | `string` | how far behind this package's database is, in a sentence fit to show an operator; `Database update pending` when the gap is not a version gap |
 
 The report is the only way to read update state. Nothing else in the system queries it
 directly, and nothing reimplements any part of it — the runner included, which is why a
@@ -235,6 +294,15 @@ would be a second view of update state beside this one. So the report answers bo
 unthrown: the runner throws that object, a renderer prints its message. They cannot be
 worded differently, because there is only one of them. `needsAttention()` names the state a renderer
 actually branches on: owes work, has nothing runnable, show the reason instead of a button.
+
+**Sentences both renderers show are worded here.** `unrunnableReason()` and
+`behindSummary()` are on the status for the same reason `needsAttention()` is: there are
+two renderers of this report — the installer's Updates page and this library's topbar
+notice — in two repositories and two templating languages, and a sentence copied into both
+is two sentences waiting to disagree. `behindSummary()` also carries the judgement that
+goes with the wording: a version gap is not the only way to owe work, so a package with
+unapplied migrations and no pending release still gets a sentence rather than
+"0 releases behind".
 
 **A package whose manifest cannot be read is broken, not quiet.** The failure belongs to
 that package alone: `isBroken()` is true, `$problem` carries the message naming the file
@@ -334,6 +402,17 @@ only ever produce the refusal.
 
 The notice is a renderer and nothing else. Every question it asks goes to
 `PluginUpdates::report()`, and it reimplements no part of it.
+
+**A report that cannot be read costs the notice, never the panel.** This hook renders into
+the topbar of every page, and building the report touches the database before it has said
+anything — the ledger asks whether its table exists, the migration diff asks the migrator
+whether its repository does. Unguarded, a database blip would not lose a badge, it would
+return a 500 for every screen in the panel, on exactly the sites that have no installer and
+so no other updates surface. Both reads are guarded: the hook's, and the component's. A
+failed read is not silence either — silence reads as "every package is level", which is the
+one thing this library must never say about a database it could not ask — so the notice
+renders a single badge saying the update status is unavailable, carrying the reason in its
+tooltip and no button. A user who may not see update state does not see that badge either.
 
 **With the installer present, the notice suppresses itself**, leaving the installer's
 Updates page as the one place update state is shown. Presence is detected by asking the

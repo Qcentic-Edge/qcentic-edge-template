@@ -26,10 +26,17 @@ use UnitEnum;
  *
  * It is a renderer and nothing else. Every question it asks goes to
  * `PluginUpdates::report()`; it reads no registry, no version ledger and no
- * migrator, and it reimplements no part of what the report answers. The
- * installer used to scan every migration path in the application from here,
- * which could only say that *something* was pending — and made every plugin
- * depend on this package to finish its own upgrade. That is gone.
+ * migrator. The one thing it works out for itself is which of the statuses it
+ * is already holding owe work — see `owing()`, which reaches nothing new and
+ * asks the report's own predicate. The installer used to scan every migration
+ * path in the application from here, which could only say that *something* was
+ * pending — and made every plugin depend on this package to finish its own
+ * upgrade. That is gone.
+ *
+ * Reading the report is a database read, and this page is reached from a panel
+ * whose every page carries its badge, so both readers here are guarded: a
+ * report that cannot be read costs the operator the list and the badge, never
+ * the panel.
  */
 class Updates extends Page
 {
@@ -48,6 +55,14 @@ class Updates extends Page
     protected string $view = 'installer::filament.pages.updates';
 
     /**
+     * Why the last attempt to read the report failed, or null when it did not.
+     *
+     * Not a Livewire property: it is re-derived by `statuses()` on every render
+     * and means nothing between requests.
+     */
+    protected ?string $reportFailure = null;
+
+    /**
      * Every registered package and what it owes, read fresh on each render
      * rather than held on the component.
      *
@@ -57,11 +72,59 @@ class Updates extends Page
      * a `PackageStatus` counts rows lazily behind a closure, which is not
      * something Livewire could carry between requests anyway.
      *
+     * Building the report touches the database twice before it has said
+     * anything — the version ledger asks whether its table exists, and the
+     * pending-migration diff asks the migrator whether its repository does — so
+     * a database that has gone away throws from here. That answers with an
+     * empty list and a reason in `reportFailure()` rather than propagating: a
+     * page that cannot read the report should say so, not return a 500 to an
+     * operator who came here precisely because something looked wrong.
+     *
      * @return array<string, PackageStatus>
      */
     public function statuses(): array
     {
-        return PluginUpdates::report()->all();
+        $this->reportFailure = null;
+
+        try {
+            return PluginUpdates::report()->all();
+        } catch (Throwable $failure) {
+            $this->reportFailure = $failure->getMessage();
+
+            return [];
+        }
+    }
+
+    /**
+     * Why the last read of the report failed, or null when it did not — which
+     * is what tells an empty list apart from an unreadable one.
+     *
+     * Recorded by `statuses()` rather than read on its own, so the page makes
+     * one attempt at the report per render and the reason it shows belongs to
+     * that attempt. The view reads the list first for the same reason.
+     */
+    public function reportFailure(): ?string
+    {
+        return $this->reportFailure;
+    }
+
+    /**
+     * Which of the statuses already read owe work — what the heading counts.
+     *
+     * This is `PluginUpdates::report()->owing()` reached the short way, and
+     * deliberately so: calling that would build the whole report a second time
+     * inside one render, re-reading the ledger and re-diffing every declared
+     * migration path to re-answer a question about objects this page is already
+     * holding. The predicate is the report's own `owesWork()`, so the two can
+     * only ever differ in how many times the database was asked, never in which
+     * packages come back.
+     *
+     * @param  array<string, PackageStatus>  $statuses
+     * @return array<string, PackageStatus>
+     */
+    public function owing(array $statuses): array
+    {
+        return array_filter($statuses, fn (PackageStatus $status): bool => $status->owesWork());
     }
 
     public static function canAccess(): bool
@@ -76,10 +139,21 @@ class Updates extends Page
      * a count of files could not be reconciled with a list of plugins. Note
      * this counts what `owesWork()` says, never a version gap — a plugin whose
      * database has simply never recorded a version is not behind on anything.
+     *
+     * Guarded, and this is the reader where that matters most. A navigation
+     * badge is rendered on *every* page of the panel, so a report that threw
+     * from here would not cost the operator a badge, it would 500 the whole
+     * panel — including the pages that have nothing to do with updates. A
+     * database blip has to drop the badge quietly instead, exactly as the
+     * installer's own health check does with the same read.
      */
     public static function getNavigationBadge(): ?string
     {
-        $count = count(PluginUpdates::report()->owing());
+        try {
+            $count = count(PluginUpdates::report()->owing());
+        } catch (Throwable) {
+            return null;
+        }
 
         return $count > 0 ? (string) $count : null;
     }

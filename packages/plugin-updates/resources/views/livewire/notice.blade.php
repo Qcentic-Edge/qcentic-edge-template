@@ -6,6 +6,10 @@
     questions: a package the report says is runnable gets the button, and one
     that owes work the library would refuse to run gets the reason instead.
 
+    Three, counting the one that is not about a package at all: a report that
+    could not be read is a single badge saying so, because an empty topbar and
+    an unreadable report look identical from here.
+
     The layout is a <style> block with real classes rather than utility classes,
     which is how a package in this workstation styles a view it renders into
     somebody else's panel — see filament-seo's social-preview and
@@ -23,7 +27,29 @@
         }
     </style>
 
-    @foreach ($this->owing() as $status)
+    @php
+        // The list first: reading it is what discovers whether the report could
+        // be read at all, and `reportFailure()` answers for that attempt.
+        $owing = $this->owing();
+        $failure = $this->reportFailure();
+    @endphp
+
+    @if ($failure !== null)
+        {{-- A topbar that went quiet would read as "every package is level", which
+             is the one thing this library must never say about a database it could
+             not ask. One badge, the reason in its tooltip, and no button: there is
+             nothing here to run and nothing known to run it on. --}}
+        <x-filament::badge
+            color="danger"
+            :icon="\Filament\Support\Icons\Heroicon::OutlinedExclamationTriangle"
+            :tooltip="$failure"
+            wire:key="plugin-updates-unreadable"
+        >
+            Update status is unavailable
+        </x-filament::badge>
+    @endif
+
+    @foreach ($owing as $status)
         @if ($status->needsAttention())
             <x-filament::badge
                 color="danger"
@@ -36,9 +62,9 @@
         @else
             <x-filament::badge
                 color="warning"
-                :tooltip="$status->versionsBehind() > 0
-                    ? $status->versionsBehind().' '.str('release')->plural($status->versionsBehind()).' behind'
-                    : 'Database update pending'"
+                {{-- The report words this, so the installer's page and this badge
+                     cannot describe the same gap differently. --}}
+                :tooltip="$status->behindSummary()"
                 :wire:key="'plugin-updates-behind-'.$status->name"
             >
                 {{ $status->title }}

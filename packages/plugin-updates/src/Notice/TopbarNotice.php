@@ -8,6 +8,7 @@ use Filament\View\PanelsRenderHook;
 use Illuminate\Contracts\View\View;
 use QcenticEdge\PluginUpdates\Access\Operator;
 use QcenticEdge\PluginUpdates\PluginUpdates;
+use Throwable;
 
 /**
  * The library's own way of telling an operator that a package's database is
@@ -52,6 +53,28 @@ final class TopbarNotice
      * Nothing but a decision about whether to render and a view that renders.
      * What is owed, and whether it can be run, are read from the report and
      * reimplemented nowhere.
+     *
+     * The read is guarded, and this is the reader where that matters most in
+     * the whole design. Building the report touches the database twice before
+     * it has said anything — the version ledger asks whether its table exists,
+     * the pending-migration diff asks the migrator whether its repository does
+     * — and this hook runs on *every* page of the panel. Unguarded, a database
+     * blip would not cost an operator a notice, it would return a 500 for every
+     * screen in the panel, on exactly the sites that have no installer and so
+     * no other updates surface to fall back on. A report that cannot be read
+     * costs the notice, never the panel.
+     *
+     * A failed read still renders, because silence here reads as "everything is
+     * fine" — the one thing this library exists to never say about a database
+     * it has not checked. The notice itself carries the reason; see
+     * `UpdatesNotice::reportFailure()`, which makes the same attempt and is
+     * where a blip that only starts after this point is caught.
+     *
+     * The two decisions above the guard are deliberately outside it. Whether
+     * the installer is here, and whether an operator is, are not questions a
+     * failed read may answer for itself — showing update state to somebody who
+     * may not see it because a check errored is a worse failure than the one
+     * being guarded against.
      */
     public static function render(): string|View
     {
@@ -59,8 +82,13 @@ final class TopbarNotice
             return '';
         }
 
-        if (! PluginUpdates::report()->anythingOwed()) {
-            return '';
+        try {
+            if (! PluginUpdates::report()->anythingOwed()) {
+                return '';
+            }
+        } catch (Throwable) {
+            // Nothing to decide on: an unreadable report is not an empty one,
+            // so the notice renders and says which it was.
         }
 
         return view('plugin-updates::topbar');

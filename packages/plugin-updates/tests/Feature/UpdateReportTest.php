@@ -409,3 +409,43 @@ it('carries null for the two facts a package did not declare', function () {
     expect($status->migrationPath)->toBeNull()
         ->and($status->seederClass)->toBeNull();
 });
+
+/**
+ * The sentence an operator reads for the size of the gap, worded once.
+ *
+ * Both renderers had grown their own copy of this cascade — the topbar notice
+ * in PHP, the installer's Updates page in Blade — and the installer's own suite
+ * asserts the exact string, so the wording is a contract between two
+ * repositories rather than a detail of either. It lives on the status for the
+ * same reason `needsAttention()` does.
+ */
+it('words how far behind a package is, once, for both renderers', function () {
+    placeAt(HISTORY_FIXTURE, '0.2.0');
+    registerHistoryPackage();
+
+    expect(statusOf(HISTORY_PACKAGE)->versionsBehind())->toBe(3)
+        ->and(statusOf(HISTORY_PACKAGE)->behindSummary())->toBe('3 releases behind');
+});
+
+it('says one release behind in the singular', function () {
+    placeAt(HISTORY_FIXTURE, '0.4.0');
+    registerHistoryPackage();
+
+    expect(statusOf(HISTORY_PACKAGE)->behindSummary())->toBe('1 release behind');
+});
+
+it('still has something to say for a package no releases behind', function () {
+    // A version gap is not the only way to owe work: this database is at the
+    // newest release the manifest lists and still has an unapplied migration in
+    // the package's own path. "0 releases behind" would be true and useless, so
+    // the sentence names the obligation instead of counting releases.
+    applyThrough(HISTORY_FIXTURE, '0.2.0');
+    versionLedger()->record(HISTORY_PACKAGE, '0.5.0');
+    registerHistoryPackage();
+
+    $status = statusOf(HISTORY_PACKAGE);
+
+    expect($status->versionsBehind())->toBe(0)
+        ->and($status->owesWork())->toBeTrue()
+        ->and($status->behindSummary())->toBe('Database update pending');
+});

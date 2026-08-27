@@ -35,15 +35,56 @@ class UpdatesNotice extends Component implements HasActions, HasSchemas
     use InteractsWithSchemas;
 
     /**
+     * Why the last attempt to read the report failed, or null when it did not.
+     *
+     * Not a Livewire property: it is re-derived by `owing()` on every render and
+     * means nothing between requests.
+     */
+    protected ?string $reportFailure = null;
+
+    /**
      * The packages with something to say, read fresh on every render — which is
      * what makes the notice disappear of its own accord once the last package
      * has been caught up.
+     *
+     * Guarded, because this component is rendered into the topbar of every page
+     * of the panel. Building the report touches the database before it has said
+     * anything, so a database that has gone away throws from here — and an
+     * unguarded throw would take the whole page down with it, not just the
+     * strip along its top. That answers with an empty list and a reason in
+     * `reportFailure()` instead.
      *
      * @return array<string, PackageStatus>
      */
     public function owing(): array
     {
-        return Operator::present() ? PluginUpdates::report()->owing() : [];
+        $this->reportFailure = null;
+
+        if (! Operator::present()) {
+            return [];
+        }
+
+        try {
+            return PluginUpdates::report()->owing();
+        } catch (Throwable $failure) {
+            $this->reportFailure = $failure->getMessage();
+
+            return [];
+        }
+    }
+
+    /**
+     * Why the last read of the report failed, or null when it did not — which is
+     * what tells a panel with nothing owed apart from one that could not be
+     * asked.
+     *
+     * Recorded by `owing()` rather than read on its own, so the notice makes one
+     * attempt at the report per render and the reason it shows belongs to that
+     * attempt. The view reads the list first for the same reason.
+     */
+    public function reportFailure(): ?string
+    {
+        return $this->reportFailure;
     }
 
     /**
