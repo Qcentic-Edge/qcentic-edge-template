@@ -87,6 +87,27 @@ Without `installer.seeders`, `assignRole('super_admin')` fails with
    with `\n` escapes into `PASSPORT_PRIVATE_KEY` / `PASSPORT_PUBLIC_KEY`, then
    delete `storage/oauth-*.key` (ephemeral disk).
 
+## Updates page (after first run)
+
+The installer migrates once, then locks itself. When a plugin upgrade later ships a
+migration there is nowhere to run it — these apps are stateless containers with no shell
+and no persistent disk. Registering the panel plugin adds an **Updates** page for exactly
+that, the way WordPress asks to update its database after a plugin upgrade:
+
+```php
+use QcenticEdge\FilamentInstaller\FilamentInstallerPlugin;
+
+$panel->plugin(FilamentInstallerPlugin::make());
+```
+
+The page (Settings → Updates, `/updates`) lists every migration on disk that has not run,
+badges the sidebar with the count, and runs them behind a confirmation. Access is limited
+to `super_admin` when the user model offers `hasRole()`, and to any authenticated panel
+user otherwise — the same posture the installer itself takes.
+
+The install flow needs no panel, so this plugin object is optional. Without it the package
+is plain routes and Blade.
+
 ## Config
 
 `php artisan vendor:publish --tag=installer-config` exposes:

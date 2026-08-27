@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "339764a1c8f70cfb04b747400542bbe3",
+    "content-hash": "bfacb6646e1ed530ac9a0892f0e59db5",
     "packages": [
         {
             "name": "anourvalar/eloquent-serialize",
@@ -6554,13 +6554,14 @@
         },
         {
             "name": "qcentic-edge/filament-installer",
-            "version": "0.3.0",
+            "version": "0.4.0",
             "dist": {
                 "type": "path",
                 "url": "../packages/filament-installer",
-                "reference": "b975c89d7e91d5c2ffc0841da80115295c2f0746"
+                "reference": "a2efa6a237734738254572c58eea5dafbb975d9e"
             },
             "require": {
+                "filament/filament": "^5.0",
                 "php": "^8.3",
                 "spatie/laravel-package-tools": "^1.16"
             },

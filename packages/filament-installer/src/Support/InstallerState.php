@@ -89,6 +89,51 @@ class InstallerState
     }
 
     /**
+     * Migration names that exist on disk but have not run yet.
+     *
+     * This is what the Updates page shows after first install: a plugin
+     * upgrade ships a migration, and the operator runs it from the panel
+     * rather than needing a shell on a stateless edge container.
+     *
+     * @return list<string>
+     */
+    public static function pendingMigrations(): array
+    {
+        try {
+            $migrator = app('migrator');
+            $repository = $migrator->getRepository();
+
+            if (! $repository->repositoryExists()) {
+                // Nothing has run yet, so everything on disk is pending.
+                return array_values(array_keys(self::migrationFiles()));
+            }
+
+            return array_values(array_diff(
+                array_keys(self::migrationFiles()),
+                $repository->getRan(),
+            ));
+        } catch (Throwable) {
+            return [];
+        }
+    }
+
+    /**
+     * Every migration the app can run: the application's own directory plus
+     * the paths each package registered with loadMigrationsFrom().
+     *
+     * @return array<string, string>  migration name => file path
+     */
+    protected static function migrationFiles(): array
+    {
+        $migrator = app('migrator');
+
+        return $migrator->getMigrationFiles(array_merge(
+            [database_path('migrations')],
+            $migrator->paths(),
+        ));
+    }
+
+    /**
      * Run configured seeder classes (roles, Passport clients, …) after migrate.
      */
     public static function seed(): void
@@ -156,11 +201,10 @@ class InstallerState
     protected static function migrationsCheck(): array
     {
         try {
-            $migrator = app('migrator');
-            $repository = $migrator->getRepository();
-            $ran = $repository->repositoryExists() ? $repository->getRan() : [];
-            $pending = array_diff($migrator->getMigrationFiles($migrator->paths()), $ran);
-            $count = count($pending);
+            // getMigrationFiles() is keyed by migration name and valued by
+            // path, while getRan() is a list of names — diffing them directly
+            // compares paths against names and reports everything as pending.
+            $count = count(self::pendingMigrations());
 
             return [
                 'label' => 'Pending migrations',
