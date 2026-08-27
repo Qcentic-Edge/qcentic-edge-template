@@ -25,7 +25,7 @@ local filesystem.
 ## Install
 
 ```bash
-composer require mamenein/filament-installer
+composer require qcentic-edge/filament-installer
 ```
 
 Private GitHub: add a VCS repository pointing at

@@ -1,11 +1,11 @@
 <?php
 
-namespace Mamenein\FilamentMediaDrive\Forms\Components;
+namespace QcenticEdge\FilamentMediaDrive\Forms\Components;
 
 use Closure;
 use Filament\Forms\Components\Field;
 use Illuminate\Support\Collection;
-use Mamenein\FilamentMediaDrive\Support\MediaDriveCatalog;
+use QcenticEdge\FilamentMediaDrive\Support\MediaDriveCatalog;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 class MediaPicker extends Field

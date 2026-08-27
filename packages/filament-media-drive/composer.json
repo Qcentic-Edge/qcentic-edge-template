@@ -1,5 +1,5 @@
 {
-    "name": "mamenein/filament-media-drive",
+    "name": "qcentic-edge/filament-media-drive",
     "description": "Filament 5 Drive-style media browser and picker field on Spatie Media Library (s3 disk).",
     "keywords": [
         "filament",
@@ -13,8 +13,7 @@
     "version": "0.1.0",
     "authors": [
         {
-            "name": "mamenein",
-            "email": "73882408+mamenein@users.noreply.github.com",
+            "name": "Qcentic Edge",
             "role": "Developer"
         }
     ],
@@ -27,13 +26,13 @@
     },
     "autoload": {
         "psr-4": {
-            "Mamenein\\FilamentMediaDrive\\": "src/"
+            "QcenticEdge\\FilamentMediaDrive\\": "src/"
         }
     },
     "extra": {
         "laravel": {
             "providers": [
-                "Mamenein\\FilamentMediaDrive\\MediaDriveServiceProvider"
+                "QcenticEdge\\FilamentMediaDrive\\MediaDriveServiceProvider"
             ]
         }
     },

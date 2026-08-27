@@ -1,6 +1,6 @@
 <?php
 
-namespace Mamenein\FilamentInstaller\Support;
+namespace QcenticEdge\FilamentInstaller\Support;
 
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
@@ -118,7 +118,7 @@ class InstallerState
             ],
         );
 
-        \Mamenein\FilamentInstaller\Events\InstallerUserCreated::dispatch($user);
+        \QcenticEdge\FilamentInstaller\Events\InstallerUserCreated::dispatch($user);
     }
 
     /**

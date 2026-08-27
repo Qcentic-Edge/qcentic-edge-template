@@ -1,10 +1,10 @@
 <?php
 
-namespace Mamenein\FilamentMediaDrive;
+namespace QcenticEdge\FilamentMediaDrive;
 
 use Filament\Contracts\Plugin;
 use Filament\Panel;
-use Mamenein\FilamentMediaDrive\Pages\DrivePage;
+use QcenticEdge\FilamentMediaDrive\Pages\DrivePage;
 
 class MediaDrivePlugin implements Plugin
 {

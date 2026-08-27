@@ -6,7 +6,7 @@ use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
-use Mamenein\FilamentMediaDrive\Pages\DrivePage;
+use QcenticEdge\FilamentMediaDrive\Pages\DrivePage;
 
 uses(DatabaseMigrations::class);
 

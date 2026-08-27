@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "872d3cfc6227ff94d288c65191fe4b43",
+    "content-hash": "339764a1c8f70cfb04b747400542bbe3",
     "packages": [
         {
             "name": "anourvalar/eloquent-serialize",
@@ -4628,114 +4628,6 @@
             "time": "2026-04-11T18:38:28+00:00"
         },
         {
-            "name": "mamenein/filament-installer",
-            "version": "0.3.0",
-            "dist": {
-                "type": "path",
-                "url": "../packages/filament-installer",
-                "reference": "0865da7760457f46ca8ac8ac19af93cd78645735"
-            },
-            "require": {
-                "php": "^8.3",
-                "spatie/laravel-package-tools": "^1.16"
-            },
-            "require-dev": {
-                "orchestra/testbench": "^10.0",
-                "phpunit/phpunit": "^11.0"
-            },
-            "type": "library",
-            "extra": {
-                "laravel": {
-                    "providers": [
-                        "Mamenein\\FilamentInstaller\\FilamentInstallerServiceProvider"
-                    ]
-                }
-            },
-            "autoload": {
-                "psr-4": {
-                    "Mamenein\\FilamentInstaller\\": "src/",
-                    "Mamenein\\FilamentInstaller\\Database\\Factories\\": "database/factories/"
-                }
-            },
-            "autoload-dev": {
-                "psr-4": {
-                    "Mamenein\\FilamentInstaller\\Tests\\": "tests/"
-                }
-            },
-            "license": [
-                "proprietary"
-            ],
-            "authors": [
-                {
-                    "name": "mamenein",
-                    "email": "73882408+mamenein@users.noreply.github.com",
-                    "role": "Developer"
-                }
-            ],
-            "description": "First-run web installer: env checklist plus one-click migrations, then locks itself.",
-            "homepage": "https://github.com/Qcentic-Edge/filament-installer",
-            "keywords": [
-                "deployment",
-                "filament",
-                "installer",
-                "laravel"
-            ],
-            "transport-options": {
-                "relative": true
-            }
-        },
-        {
-            "name": "mamenein/filament-media-drive",
-            "version": "0.1.0",
-            "dist": {
-                "type": "path",
-                "url": "../packages/filament-media-drive",
-                "reference": "798e159b37eda9532af7d28c4d201278fd3c814e"
-            },
-            "require": {
-                "filament/filament": "^5.0",
-                "filament/spatie-laravel-media-library-plugin": "^5.0",
-                "php": "^8.3",
-                "spatie/laravel-medialibrary": "^11.0",
-                "spatie/laravel-package-tools": "^1.16"
-            },
-            "type": "library",
-            "extra": {
-                "laravel": {
-                    "providers": [
-                        "Mamenein\\FilamentMediaDrive\\MediaDriveServiceProvider"
-                    ]
-                }
-            },
-            "autoload": {
-                "psr-4": {
-                    "Mamenein\\FilamentMediaDrive\\": "src/"
-                }
-            },
-            "license": [
-                "Apache-2.0"
-            ],
-            "authors": [
-                {
-                    "name": "mamenein",
-                    "email": "73882408+mamenein@users.noreply.github.com",
-                    "role": "Developer"
-                }
-            ],
-            "description": "Filament 5 Drive-style media browser and picker field on Spatie Media Library (s3 disk).",
-            "homepage": "https://github.com/Qcentic-Edge/qcentic-edge-template",
-            "keywords": [
-                "drive",
-                "filament",
-                "laravel",
-                "media",
-                "spatie"
-            ],
-            "transport-options": {
-                "relative": true
-            }
-        },
-        {
             "name": "monolog/monolog",
             "version": "3.10.0",
             "source": {
@@ -6659,6 +6551,112 @@
                 "source": "https://github.com/pusher/pusher-http-php/tree/7.3.0"
             },
             "time": "2026-08-07T12:47:11+00:00"
+        },
+        {
+            "name": "qcentic-edge/filament-installer",
+            "version": "0.3.0",
+            "dist": {
+                "type": "path",
+                "url": "../packages/filament-installer",
+                "reference": "b975c89d7e91d5c2ffc0841da80115295c2f0746"
+            },
+            "require": {
+                "php": "^8.3",
+                "spatie/laravel-package-tools": "^1.16"
+            },
+            "require-dev": {
+                "orchestra/testbench": "^10.0",
+                "phpunit/phpunit": "^11.0"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "QcenticEdge\\FilamentInstaller\\FilamentInstallerServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "QcenticEdge\\FilamentInstaller\\": "src/",
+                    "QcenticEdge\\FilamentInstaller\\Database\\Factories\\": "database/factories/"
+                }
+            },
+            "autoload-dev": {
+                "psr-4": {
+                    "QcenticEdge\\FilamentInstaller\\Tests\\": "tests/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "authors": [
+                {
+                    "name": "Qcentic Edge",
+                    "role": "Developer"
+                }
+            ],
+            "description": "First-run web installer: env checklist plus one-click migrations, then locks itself.",
+            "homepage": "https://github.com/Qcentic-Edge/filament-installer",
+            "keywords": [
+                "deployment",
+                "filament",
+                "installer",
+                "laravel"
+            ],
+            "transport-options": {
+                "relative": true
+            }
+        },
+        {
+            "name": "qcentic-edge/filament-media-drive",
+            "version": "0.1.0",
+            "dist": {
+                "type": "path",
+                "url": "../packages/filament-media-drive",
+                "reference": "47f8af8de00ea558a6fe14ba3866d46747f5c8ee"
+            },
+            "require": {
+                "filament/filament": "^5.0",
+                "filament/spatie-laravel-media-library-plugin": "^5.0",
+                "php": "^8.3",
+                "spatie/laravel-medialibrary": "^11.0",
+                "spatie/laravel-package-tools": "^1.16"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "QcenticEdge\\FilamentMediaDrive\\MediaDriveServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "QcenticEdge\\FilamentMediaDrive\\": "src/"
+                }
+            },
+            "license": [
+                "Apache-2.0"
+            ],
+            "authors": [
+                {
+                    "name": "Qcentic Edge",
+                    "role": "Developer"
+                }
+            ],
+            "description": "Filament 5 Drive-style media browser and picker field on Spatie Media Library (s3 disk).",
+            "homepage": "https://github.com/Qcentic-Edge/qcentic-edge-template",
+            "keywords": [
+                "drive",
+                "filament",
+                "laravel",
+                "media",
+                "spatie"
+            ],
+            "transport-options": {
+                "relative": true
+            }
         },
         {
             "name": "ralouphie/getallheaders",

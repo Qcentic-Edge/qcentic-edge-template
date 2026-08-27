@@ -1,7 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use Mamenein\FilamentInstaller\Http\Controllers\InstallController;
+use QcenticEdge\FilamentInstaller\Http\Controllers\InstallController;
 
 Route::middleware('web')->group(function (): void {
     $path = trim((string) config('installer.path', 'install'), '/');

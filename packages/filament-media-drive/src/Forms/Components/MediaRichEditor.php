@@ -1,11 +1,11 @@
 <?php
 
-namespace Mamenein\FilamentMediaDrive\Forms\Components;
+namespace QcenticEdge\FilamentMediaDrive\Forms\Components;
 
 use Filament\Forms\Components\RichEditor;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
-use Mamenein\FilamentMediaDrive\Support\EditorImageStore;
-use Mamenein\FilamentMediaDrive\Support\MediaDriveCatalog;
+use QcenticEdge\FilamentMediaDrive\Support\EditorImageStore;
+use QcenticEdge\FilamentMediaDrive\Support\MediaDriveCatalog;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 class MediaRichEditor extends RichEditor

@@ -7,9 +7,9 @@ use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
-use Mamenein\FilamentMediaDrive\Forms\Components\MediaMarkdownEditor;
-use Mamenein\FilamentMediaDrive\Forms\Components\MediaRichEditor;
-use Mamenein\FilamentMediaDrive\Support\EditorImageStore;
+use QcenticEdge\FilamentMediaDrive\Forms\Components\MediaMarkdownEditor;
+use QcenticEdge\FilamentMediaDrive\Forms\Components\MediaRichEditor;
+use QcenticEdge\FilamentMediaDrive\Support\EditorImageStore;
 
 uses(DatabaseMigrations::class);
 

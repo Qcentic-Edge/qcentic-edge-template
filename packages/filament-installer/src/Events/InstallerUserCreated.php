@@ -1,6 +1,6 @@
 <?php
 
-namespace Mamenein\FilamentInstaller\Events;
+namespace QcenticEdge\FilamentInstaller\Events;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Events\Dispatchable;

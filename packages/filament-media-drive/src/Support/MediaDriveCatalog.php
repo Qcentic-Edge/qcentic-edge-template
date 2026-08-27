@@ -1,6 +1,6 @@
 <?php
 
-namespace Mamenein\FilamentMediaDrive\Support;
+namespace QcenticEdge\FilamentMediaDrive\Support;
 
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Collection;

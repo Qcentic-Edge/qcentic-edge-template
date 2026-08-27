@@ -1,12 +1,12 @@
 <?php
 
-namespace Mamenein\FilamentInstaller\Http\Controllers;
+namespace QcenticEdge\FilamentInstaller\Http\Controllers;
 
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
-use Mamenein\FilamentInstaller\Support\InstallerState;
+use QcenticEdge\FilamentInstaller\Support\InstallerState;
 use Throwable;
 
 class InstallController extends Controller

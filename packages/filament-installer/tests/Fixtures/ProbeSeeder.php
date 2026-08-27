@@ -1,6 +1,6 @@
 <?php
 
-namespace Mamenein\FilamentInstaller\Tests\Fixtures;
+namespace QcenticEdge\FilamentInstaller\Tests\Fixtures;
 
 use Illuminate\Database\Seeder;
 

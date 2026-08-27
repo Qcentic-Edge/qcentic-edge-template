@@ -1,6 +1,6 @@
 <?php
 
-namespace Mamenein\FilamentMediaDrive\Pages;
+namespace QcenticEdge\FilamentMediaDrive\Pages;
 
 use BackedEnum;
 use Filament\Actions\Action;
@@ -11,9 +11,9 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
-use Mamenein\FilamentMediaDrive\Forms\Components\MediaPicker;
-use Mamenein\FilamentMediaDrive\Support\EditorImageStore;
-use Mamenein\FilamentMediaDrive\Support\MediaDriveCatalog;
+use QcenticEdge\FilamentMediaDrive\Forms\Components\MediaPicker;
+use QcenticEdge\FilamentMediaDrive\Support\EditorImageStore;
+use QcenticEdge\FilamentMediaDrive\Support\MediaDriveCatalog;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 

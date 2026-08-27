@@ -9,7 +9,7 @@ use App\Policies\UserPolicy;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
-use Mamenein\FilamentInstaller\Events\InstallerUserCreated;
+use QcenticEdge\FilamentInstaller\Events\InstallerUserCreated;
 use Spatie\MediaLibrary\MediaCollections\Events\MediaHasBeenAddedEvent;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 

@@ -1,5 +1,5 @@
 {
-    "name": "mamenein/filament-installer",
+    "name": "qcentic-edge/filament-installer",
     "description": "First-run web installer: env checklist plus one-click migrations, then locks itself.",
     "keywords": [
         "filament",
@@ -11,8 +11,7 @@
     "version": "0.3.0",
     "authors": [
         {
-            "name": "mamenein",
-            "email": "73882408+mamenein@users.noreply.github.com",
+            "name": "Qcentic Edge",
             "role": "Developer"
         }
     ],
@@ -26,19 +25,19 @@
     },
     "autoload": {
         "psr-4": {
-            "Mamenein\\FilamentInstaller\\": "src/",
-            "Mamenein\\FilamentInstaller\\Database\\Factories\\": "database/factories/"
+            "QcenticEdge\\FilamentInstaller\\": "src/",
+            "QcenticEdge\\FilamentInstaller\\Database\\Factories\\": "database/factories/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "Mamenein\\FilamentInstaller\\Tests\\": "tests/"
+            "QcenticEdge\\FilamentInstaller\\Tests\\": "tests/"
         }
     },
     "extra": {
         "laravel": {
             "providers": [
-                "Mamenein\\FilamentInstaller\\FilamentInstallerServiceProvider"
+                "QcenticEdge\\FilamentInstaller\\FilamentInstallerServiceProvider"
             ]
         }
     },

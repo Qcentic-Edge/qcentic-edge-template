@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Features\SupportFileUploads\FileUploadConfiguration;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
-use Mamenein\FilamentMediaDrive\Support\EditorImageStore;
+use QcenticEdge\FilamentMediaDrive\Support\EditorImageStore;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 uses(DatabaseMigrations::class);

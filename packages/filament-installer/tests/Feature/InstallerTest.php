@@ -1,9 +1,9 @@
 <?php
 
-namespace Mamenein\FilamentInstaller\Tests\Feature;
+namespace QcenticEdge\FilamentInstaller\Tests\Feature;
 
-use Mamenein\FilamentInstaller\Support\InstallerState;
-use Mamenein\FilamentInstaller\Tests\TestCase;
+use QcenticEdge\FilamentInstaller\Support\InstallerState;
+use QcenticEdge\FilamentInstaller\Tests\TestCase;
 
 class InstallerTest extends TestCase
 {
@@ -76,7 +76,7 @@ class InstallerTest extends TestCase
 
     public function test_run_creates_the_first_user(): void
     {
-        config()->set('installer.user_model', \Mamenein\FilamentInstaller\Tests\Fixtures\User::class);
+        config()->set('installer.user_model', \QcenticEdge\FilamentInstaller\Tests\Fixtures\User::class);
 
         \Illuminate\Support\Facades\Schema::create('users', function ($table): void {
             $table->id();
@@ -92,7 +92,7 @@ class InstallerTest extends TestCase
             'password' => 'Str0ng!Password',
         ])->assertRedirect(route('installer.show'));
 
-        $user = \Mamenein\FilamentInstaller\Tests\Fixtures\User::query()->sole();
+        $user = \QcenticEdge\FilamentInstaller\Tests\Fixtures\User::query()->sole();
 
         $this->assertSame('admin@example.com', $user->email);
         $this->assertTrue(\Illuminate\Support\Facades\Hash::check('Str0ng!Password', $user->password));
@@ -102,18 +102,18 @@ class InstallerTest extends TestCase
     public function test_run_executes_configured_seeders_before_user(): void
     {
         config()->set('installer.create_user', false);
-        config()->set('installer.seeders', [\Mamenein\FilamentInstaller\Tests\Fixtures\ProbeSeeder::class]);
-        \Mamenein\FilamentInstaller\Tests\Fixtures\ProbeSeeder::$ran = false;
+        config()->set('installer.seeders', [\QcenticEdge\FilamentInstaller\Tests\Fixtures\ProbeSeeder::class]);
+        \QcenticEdge\FilamentInstaller\Tests\Fixtures\ProbeSeeder::$ran = false;
 
         $this->post('/install')->assertRedirect(route('installer.show'));
 
-        $this->assertTrue(\Mamenein\FilamentInstaller\Tests\Fixtures\ProbeSeeder::$ran);
+        $this->assertTrue(\QcenticEdge\FilamentInstaller\Tests\Fixtures\ProbeSeeder::$ran);
         $this->assertTrue(InstallerState::isInstalled());
     }
 
     public function test_create_user_retries_same_email_after_partial_failure(): void
     {
-        config()->set('installer.user_model', \Mamenein\FilamentInstaller\Tests\Fixtures\User::class);
+        config()->set('installer.user_model', \QcenticEdge\FilamentInstaller\Tests\Fixtures\User::class);
 
         \Illuminate\Support\Facades\Schema::create('users', function ($table): void {
             $table->id();
@@ -123,7 +123,7 @@ class InstallerTest extends TestCase
             $table->timestamps();
         });
 
-        \Mamenein\FilamentInstaller\Tests\Fixtures\User::query()->create([
+        \QcenticEdge\FilamentInstaller\Tests\Fixtures\User::query()->create([
             'name' => 'Old',
             'email' => 'admin@example.com',
             'password' => 'old',
@@ -135,7 +135,7 @@ class InstallerTest extends TestCase
             'password' => 'Str0ng!Password',
         ])->assertRedirect(route('installer.show'));
 
-        $user = \Mamenein\FilamentInstaller\Tests\Fixtures\User::query()->sole();
+        $user = \QcenticEdge\FilamentInstaller\Tests\Fixtures\User::query()->sole();
 
         $this->assertSame('Admin', $user->name);
         $this->assertTrue(\Illuminate\Support\Facades\Hash::check('Str0ng!Password', $user->password));

@@ -1,8 +1,8 @@
 <?php
 
-namespace Mamenein\FilamentInstaller\Tests;
+namespace QcenticEdge\FilamentInstaller\Tests;
 
-use Mamenein\FilamentInstaller\FilamentInstallerServiceProvider;
+use QcenticEdge\FilamentInstaller\FilamentInstallerServiceProvider;
 use Orchestra\Testbench\TestCase as Orchestra;
 
 abstract class TestCase extends Orchestra

@@ -1,6 +1,6 @@
 <?php
 
-namespace Mamenein\FilamentMediaDrive;
+namespace QcenticEdge\FilamentMediaDrive;
 
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;

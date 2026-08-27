@@ -20,9 +20,9 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
-use Mamenein\FilamentMediaDrive\Pages\DrivePage;
-use Mamenein\FilamentMediaDrive\Support\EditorImageStore;
-use Mamenein\FilamentMediaDrive\Support\MediaDriveCatalog;
+use QcenticEdge\FilamentMediaDrive\Pages\DrivePage;
+use QcenticEdge\FilamentMediaDrive\Support\EditorImageStore;
+use QcenticEdge\FilamentMediaDrive\Support\MediaDriveCatalog;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 

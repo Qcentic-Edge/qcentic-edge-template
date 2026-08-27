@@ -1,12 +1,12 @@
 <?php
 
-namespace Mamenein\FilamentMediaDrive\Forms\Components;
+namespace QcenticEdge\FilamentMediaDrive\Forms\Components;
 
 use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Illuminate\Database\Eloquent\Model;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
-use Mamenein\FilamentMediaDrive\Support\EditorImageStore;
-use Mamenein\FilamentMediaDrive\Support\MediaDriveCatalog;
+use QcenticEdge\FilamentMediaDrive\Support\EditorImageStore;
+use QcenticEdge\FilamentMediaDrive\Support\MediaDriveCatalog;
 
 class MediaLibraryFileUpload extends SpatieMediaLibraryFileUpload
 {

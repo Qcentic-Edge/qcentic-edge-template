@@ -1,10 +1,10 @@
 <?php
 
-namespace Mamenein\FilamentInstaller;
+namespace QcenticEdge\FilamentInstaller;
 
 use Illuminate\Contracts\Http\Kernel;
-use Mamenein\FilamentInstaller\Http\Middleware\RedirectToInstaller;
-use Mamenein\FilamentInstaller\Support\InstallerState;
+use QcenticEdge\FilamentInstaller\Http\Middleware\RedirectToInstaller;
+use QcenticEdge\FilamentInstaller\Support\InstallerState;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
 

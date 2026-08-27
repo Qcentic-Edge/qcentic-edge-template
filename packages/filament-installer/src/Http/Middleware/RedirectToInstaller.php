@@ -1,10 +1,10 @@
 <?php
 
-namespace Mamenein\FilamentInstaller\Http\Middleware;
+namespace QcenticEdge\FilamentInstaller\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
-use Mamenein\FilamentInstaller\Support\InstallerState;
+use QcenticEdge\FilamentInstaller\Support\InstallerState;
 use Symfony\Component\HttpFoundation\Response;
 
 class RedirectToInstaller
