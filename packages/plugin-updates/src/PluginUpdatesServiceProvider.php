@@ -6,6 +6,7 @@ use Illuminate\Support\ServiceProvider;
 use QcenticEdge\PluginUpdates\Ledger\VersionLedger;
 use QcenticEdge\PluginUpdates\Registry\PackageRegistry;
 use QcenticEdge\PluginUpdates\Report\UpdateReport;
+use QcenticEdge\PluginUpdates\Runner\UpdateRunner;
 
 /**
  * Deliberately not a Filament plugin: no panel plugin object, no page, no
@@ -33,5 +34,10 @@ class PluginUpdatesServiceProvider extends ServiceProvider
         // was holding. Every resolve builds a fresh report over the singleton
         // registry and ledger.
         $this->app->bind(UpdateReport::class);
+
+        // Likewise bound rather than shared: a runner reads the report at the
+        // start of every run, and holding one from an earlier request would be
+        // reading a database that has since moved.
+        $this->app->bind(UpdateRunner::class);
     }
 }

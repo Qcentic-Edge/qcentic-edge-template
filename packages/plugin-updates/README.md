@@ -19,6 +19,7 @@ finish its own upgrade.
 - `PluginUpdates::packages()` — every package that has declared itself, for anything that reports on them
 - `PluginUpdates::ledger()` — the version each package's database is at, in a table the library ensures itself with no migration file
 - `PluginUpdates::report()` — the one reading seam: what every registered package owes, right now
+- `PluginUpdates::run(...)` — one package catches up: its unapplied migrations, its seeder if a pending release owes one, then its stored version. Never on boot
 - `codeVersion()` — the deployed version via Composer's installed-versions API, correct for path repositories
 - No Filament page, resource or navigation item, and no dependency on Filament at all
 
@@ -208,6 +209,60 @@ up-to-date one, and every other package still reports normally beside it. It rep
 pending versions, no pending migrations and no seeds, because what it owes is exactly
 what could not be read. A renderer should show it as needing attention rather than as
 work to run.
+
+### Running an update
+
+```php
+PluginUpdates::run('qcentic-edge/filament-seo');
+
+// what it owes now — read back the same way anything else reads it
+PluginUpdates::report()->status('qcentic-edge/filament-seo')->owesWork(); // false
+```
+
+One package at a time, always from an explicit action, and three steps in order: the
+unapplied migrations in that package's own path, then its seeder if any pending release
+owes one, then the stored version advanced to the code version.
+
+`run()` returns nothing on purpose. What the package owes afterwards is read back through
+`report()`, so a caller never holds a private answer alongside the one everything else
+reads.
+
+**Any size of gap is the same call.** An operator who skipped five releases and one who is
+a single release behind get the same single action. `Migrator::run()` over one directory
+is the files in that directory minus the ones the `migrations` ledger already records, so
+a path-scoped run is exactly incremental over an arbitrary gap with no bookkeeping of its
+own — and reaches no other package's files. There is no catch-up mode to get wrong,
+because there is no catch-up mode: the multi-version path and the single-version path are
+literally the same code.
+
+**Failure is a retry, and a partial run is still progress.** The migration ledger records
+each file as it succeeds, so a run that dies halfway through a four-release gap keeps
+everything applied up to that point. Nothing wraps the batch in a transaction, and nothing
+may: a rollback of the whole batch is what would make a host with a request timeout unable
+to finish a long catch-up however many times an operator retried. The stored version
+advances only after every step succeeded, so a package interrupted partway still reports
+as behind, the button stays, and the next click resumes from the first unapplied file
+rather than starting over.
+
+**The stored version advances to the code version**, not to the newest pending release, so
+an operator is never left stranded on an intermediate version.
+
+**The seeder runs once**, however many pending releases asked for it — which is why the
+one a package declares must be idempotent.
+
+A run refuses, before it has touched anything, when the library would otherwise have to
+guess. Each throws `UnrunnablePackage` naming the package and what to declare:
+
+| Refusal | Why |
+|---|---|
+| the package never registered | there is nothing to run |
+| `isBroken()` — its manifest could not be read | whether a seed is owed is unknown, and running blind is what the design forbids |
+| `codeVersionKnown()` is false | there is no version to advance the database to, and recording an invented one would report a stale database as current for ever after |
+| a pending release owes a seed and no seeder was declared | skipping it quietly would lose the data that release meant to add |
+
+**Nothing runs on boot.** Registering a package does no work of any kind; the only thing
+that ever touches the schema is this call. Several replicas starting the same schema
+change on deploy is the failure that avoids.
 
 ### The version ledger
 

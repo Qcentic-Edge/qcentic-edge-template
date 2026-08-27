@@ -6,6 +6,7 @@ use QcenticEdge\PluginUpdates\PluginUpdates;
 use QcenticEdge\PluginUpdates\Report\PackageStatus;
 use QcenticEdge\PluginUpdates\Registry\UpdatablePackage;
 use QcenticEdge\PluginUpdates\Tests\Fixtures\FixtureSeeder;
+use QcenticEdge\PluginUpdates\Tests\Fixtures\RunPackageSeeder;
 use QcenticEdge\PluginUpdates\Tests\TestCase;
 
 uses(TestCase::class)->in('Feature', 'Unit');
@@ -196,6 +197,112 @@ function historyStatus(string $name = HISTORY_PACKAGE): PackageStatus
     return PluginUpdates::report()->status($name)
         ?? throw new RuntimeException("No package [{$name}] is registered; a test that asks "
             .'what the history fixture owes has to call registerHistoryPackage() first.');
+}
+
+function runPackagePath(string $path = ''): string
+{
+    return rtrim(__DIR__.'/Fixtures/RunPackage/'.$path, '/');
+}
+
+/**
+ * The fixture the run tests drive: four releases, four migration files, a
+ * seeder, and a third migration a test can make fail.
+ *
+ * Registered under the library's own Composer name, because a run refuses a
+ * package whose deployed version Composer does not know and the library is the
+ * only package guaranteed to be installed while its own suite runs. Its
+ * releases all sit below that version, and none of them equals it, so a test
+ * can tell "advanced to the code version" apart from "advanced to the newest
+ * pending release".
+ *
+ * Pass `withMigrations: false` for a package that owes only a seed, and
+ * `withSeeder: false` for one that declares none.
+ */
+function registerRunPackage(bool $withMigrations = true, bool $withSeeder = true): UpdatablePackage
+{
+    $package = UpdatablePackage::make(INSTALLED_PACKAGE)
+        ->title('Run Plugin')
+        ->manifest(runPackagePath('updates.php'))
+        ->tables(['run_widgets', 'run_notes', 'run_tags']);
+
+    if ($withMigrations) {
+        $package->migrations(runPackagePath('migrations'));
+    }
+
+    if ($withSeeder) {
+        $package->seeder(RunPackageSeeder::class);
+    }
+
+    PluginUpdates::register($package);
+
+    return $package;
+}
+
+/**
+ * Which migration file each release of the run fixture shipped. Like
+ * `historyReleases()`, this map lives in the test suite and must never grow
+ * anywhere in `src/`.
+ *
+ * @return array<string, list<string>>
+ */
+function runReleases(): array
+{
+    return [
+        '0.0.1' => ['2026_01_01_000000_create_run_widgets_table'],
+        '0.0.2' => ['2026_02_01_000000_create_run_notes_table'],
+        '0.0.3' => ['2026_03_01_000000_create_run_tags_table'],
+        '0.0.4' => ['2026_04_01_000000_add_colour_to_run_widgets_table'],
+    ];
+}
+
+/** Run every run-fixture migration that shipped at or before this release. */
+function applyRunThrough(string $release): void
+{
+    foreach (runReleases() as $version => $migrations) {
+        if (version_compare($version, $release, '>')) {
+            continue;
+        }
+
+        foreach ($migrations as $migration) {
+            applyFixtureMigration(runPackagePath('migrations/'.$migration.'.php'));
+        }
+    }
+}
+
+/** Put the database where a site that last deployed the run fixture at this release would be. */
+function placeRunAt(string $release): void
+{
+    applyRunThrough($release);
+
+    PluginUpdates::ledger()->record(INSTALLED_PACKAGE, $release);
+}
+
+/** What the report says the run fixture owes — read back the same way anything else reads it. */
+function runStatus(): PackageStatus
+{
+    return PluginUpdates::report()->status(INSTALLED_PACKAGE)
+        ?? throw new RuntimeException('No run fixture is registered; call registerRunPackage() first.');
+}
+
+/**
+ * The version of the run fixture's code as deployed. It is the library's own,
+ * because the run fixture registers under the library's Composer name.
+ */
+function runCodeVersion(): string
+{
+    return libraryComposer()['version'];
+}
+
+/** Every migration Laravel's own ledger records as applied. */
+function appliedMigrations(): array
+{
+    return DB::table('migrations')->orderBy('id')->pluck('migration')->all();
+}
+
+/** How many rows the run fixture's seeder has written. One per time it ran. */
+function seededRows(): int
+{
+    return DB::table(RunPackageSeeder::TABLE)->count();
 }
 
 /**

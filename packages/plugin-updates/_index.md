@@ -7,9 +7,9 @@ prefix, no Filament page, never installed directly, arrives transitively.
 
 ## Files
 - `composer.json` — `qcentic-edge/plugin-updates`
-- `README.md` — installation as a path repository, registering a package, the manifest, the ledger
+- `README.md` — installation as a path repository, registering a package, the manifest, the report, running an update, the ledger
 - `phpunit.xml` — Pest suite (Feature + Unit)
 
 ## Subdirectories
-- `src/` — `PluginUpdates` entry point, registry, version ledger, release manifest, migration diff, and the update report
-- `tests/` — registration, ledger, manifest parsing, the report, schema owed, the multi-version gap, not-a-panel-plugin guards
+- `src/` — `PluginUpdates` entry point, registry, version ledger, release manifest, migration diff, the update report, and the runner that catches one package up
+- `tests/` — registration, ledger, manifest parsing, the report, schema owed, the multi-version gap, running an update, the resume guarantee, never-on-boot, not-a-panel-plugin guards
