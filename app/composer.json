@@ -18,6 +18,10 @@
             "url": "../packages/filament-installer"
         },
         {
+            "type": "path",
+            "url": "../packages/plugin-updates"
+        },
+        {
             "type": "vcs",
             "url": "https://github.com/mehdiamenein/libsql-laravel"
         }

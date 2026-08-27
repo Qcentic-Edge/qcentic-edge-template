@@ -1,0 +1,57 @@
+{
+    "name": "qcentic-edge/plugin-updates",
+    "description": "Shared per-package update tracking: packages register themselves, and the library records which version each package's database is at.",
+    "keywords": [
+        "laravel",
+        "filament",
+        "updates",
+        "migrations"
+    ],
+    "license": "proprietary",
+    "version": "0.1.0",
+    "authors": [
+        {
+            "name": "Qcentic Edge",
+            "role": "Developer"
+        }
+    ],
+    "require": {
+        "php": "^8.3",
+        "composer-runtime-api": "^2.2",
+        "illuminate/database": "^12.0|^13.0",
+        "illuminate/support": "^12.0|^13.0"
+    },
+    "require-dev": {
+        "orchestra/testbench": "^10.0",
+        "pestphp/pest": "^4.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "QcenticEdge\\PluginUpdates\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "QcenticEdge\\PluginUpdates\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "pest"
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "QcenticEdge\\PluginUpdates\\PluginUpdatesServiceProvider"
+            ]
+        }
+    },
+    "config": {
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        },
+        "sort-packages": true
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "homepage": "https://github.com/Qcentic-Edge/plugin-updates"
+}
