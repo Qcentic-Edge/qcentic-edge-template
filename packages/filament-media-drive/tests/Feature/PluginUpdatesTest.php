@@ -36,6 +36,6 @@ test('the package reports as owing nothing, and asking for its row counts does n
 test('running an update on a package with no migration path does not throw', function () {
     PluginUpdates::run('qcentic-edge/filament-media-drive');
 
-    expect(PluginUpdates::ledger()->storedVersion('qcentic-edge/filament-media-drive'))
+    expect(PluginUpdates::report()->status('qcentic-edge/filament-media-drive')->storedVersion)
         ->toBe(PluginUpdates::package('qcentic-edge/filament-media-drive')->codeVersion());
 });
