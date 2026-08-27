@@ -1,16 +1,25 @@
 <?php
 
+use Filament\Facades\Filament;
+use Filament\Support\Facades\FilamentView;
+use Filament\View\PanelsRenderHook;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use QcenticEdge\PluginUpdates\PluginUpdates;
 use QcenticEdge\PluginUpdates\Report\PackageStatus;
 use QcenticEdge\PluginUpdates\Registry\UpdatablePackage;
 use QcenticEdge\PluginUpdates\Tests\Fixtures\FixtureSeeder;
+use QcenticEdge\PluginUpdates\Tests\Fixtures\InstallerLikePlugin;
 use QcenticEdge\PluginUpdates\Tests\Fixtures\RunPackageSeeder;
 use QcenticEdge\PluginUpdates\Tests\TestCase;
 
 uses(TestCase::class)->in('Feature', 'Unit');
 uses(RefreshDatabase::class)->in('Feature');
+
+// Host/ is bound nowhere here on purpose: each file in it boots a different
+// shape of host — one with no Livewire to render the notice with, one where the
+// library's own provider never registered — so each names its own base class at
+// the top of the file rather than sharing a directory's.
 
 const HISTORY_PACKAGE = 'qcentic-edge/history-plugin';
 const INSTALLED_PACKAGE = 'qcentic-edge/plugin-updates';
@@ -343,4 +352,22 @@ function librarySource(): string
 function libraryPath(string $path = ''): string
 {
     return rtrim(dirname(__DIR__).'/'.$path, '/');
+}
+
+/**
+ * What the panel's topbar render hook draws, on the test app's panel. The
+ * notice has no seam of its own — this is the hook a real panel calls, asked
+ * the same way.
+ */
+function renderTopbar(): string
+{
+    Filament::setCurrentPanel('admin');
+
+    return (string) FilamentView::renderHook(PanelsRenderHook::TOPBAR_END);
+}
+
+/** Put an installer-shaped plugin on the test app's panel, under the id the installer uses. */
+function installerPluginPresent(): void
+{
+    Filament::getPanel('admin')->plugin(new InstallerLikePlugin);
 }

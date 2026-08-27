@@ -3,7 +3,9 @@
 namespace QcenticEdge\PluginUpdates;
 
 use QcenticEdge\PluginUpdates\Ledger\VersionLedger;
+use QcenticEdge\PluginUpdates\Registry\IncompleteDeclaration;
 use QcenticEdge\PluginUpdates\Registry\PackageRegistry;
+use QcenticEdge\PluginUpdates\Registry\UnreachableRegistry;
 use QcenticEdge\PluginUpdates\Registry\UpdatablePackage;
 use QcenticEdge\PluginUpdates\Report\UpdateReport;
 use QcenticEdge\PluginUpdates\Runner\UnrunnablePackage;
@@ -23,11 +25,35 @@ use QcenticEdge\PluginUpdates\Runner\UpdateRunner;
  */
 final class PluginUpdates
 {
+    /**
+     * The one shared registry, and never a stand-in for it.
+     *
+     * The library's own provider binds it as a singleton. Without that binding
+     * the container would still hand back a `PackageRegistry` — it is a
+     * concrete class with nothing to inject — and that registry would be a
+     * throwaway: a package would declare itself into an object discarded at the
+     * end of the call, and every package would then report its database as up
+     * to date. So the binding is checked rather than assumed, and its absence
+     * is an exception rather than an empty list.
+     *
+     * @throws UnreachableRegistry when the library's own service provider is
+     *                             not registered, so there is no shared
+     *                             registry to reach.
+     */
     public static function registry(): PackageRegistry
     {
+        if (! app()->bound(PackageRegistry::class)) {
+            throw UnreachableRegistry::providerNotRegistered(PluginUpdatesServiceProvider::class);
+        }
+
         return app(PackageRegistry::class);
     }
 
+    /**
+     * @throws UnreachableRegistry when the library's own provider is missing,
+     *                             so the declaration would go nowhere.
+     * @throws IncompleteDeclaration when the package declares no manifest.
+     */
     public static function register(UpdatablePackage ...$packages): PackageRegistry
     {
         return self::registry()->add(...$packages);

@@ -6,7 +6,7 @@
 `qcentic-edge/plugin-updates` gives every first-party package the same answer to one question: has the code moved ahead of the database, and what does it owe?
 
 > [!NOTE]
-> First-party Qcentic library (ADR 0005). Unpublished — license (free vs paid) is still an open decision. This is a library, not a panel plugin: it is never installed directly, and nothing here renders.
+> First-party Qcentic library (ADR 0005). Unpublished — license (free vs paid) is still an open decision. This is a library, not a panel plugin: it drops the `filament-` prefix, ships no page, resource or navigation item, and is never installed directly — it arrives transitively. It does require `filament/filament`, because it renders one notice into the panel's topbar and needs Filament's render hooks to do it; that dependency is not what makes a package a panel plugin here.
 
 The model is WordPress'. A package keeps its own version, compares it against the
 version of the code that is deployed, and runs its own migrations and seeder. Nothing
@@ -21,7 +21,8 @@ finish its own upgrade.
 - `PluginUpdates::report()` — the one reading seam: what every registered package owes, right now
 - `PluginUpdates::run(...)` — one package catches up: its unapplied migrations, its seeder if a pending release owes one, then its stored version. Never on boot
 - `codeVersion()` — the deployed version via Composer's installed-versions API, correct for path repositories
-- No Filament page, resource or navigation item, and no dependency on Filament at all
+- A topbar notice, so a package on a site with no installer still tells the operator its database is behind — suppressed where the installer's Updates page is present, and skipped entirely in a host with no Livewire to render it
+- No Filament page, resource or navigation item
 
 ## Compatibility
 
@@ -100,6 +101,16 @@ writing reporting code.
 Registering the same package name twice replaces the declaration rather than listing the
 package twice.
 
+Registering when the library's own service provider is not registered — a Composer install
+that skipped `package:discover`, or a host that lists its providers by hand — throws
+`UnreachableRegistry`, naming the provider and how to get it back. Without that check the
+call would appear to succeed: the registry is a concrete class, so the container would
+auto-wire one with no binding behind it, the declaration would land in an object discarded
+at the end of the call, and every package would then report its database as up to date.
+A stale database read as healthy is the failure this library exists to prevent, so it is
+refused where the mistake is rather than discovered by an operator later. Reading the
+registry is refused the same way, because an empty answer is exactly the dangerous one.
+
 ### The manifest
 
 One row per release, seeds only:
@@ -173,8 +184,12 @@ A `PackageStatus` is a result object, read once and answered in full:
 | `schemaOwed()` | `bool` | `$pendingMigrations !== []` |
 | `seedOwed()` | `bool` | `$seedingVersions !== []` |
 | `codeVersionKnown()` | `bool` | whether Composer knows the deployed version, so there is one to advance the stored version to |
+| `$seederDeclared` | `bool` | whether the package declared a seeder for a pending release to use |
 | `isBroken()` | `bool` | this package's own manifest could not be read; `$problem` says how |
 | `owesWork()` | `bool` | broken, schema owed, or seed owed |
+| `runnable()` | `bool` | whether `run()` would go ahead rather than refuse before touching anything |
+| `unrunnableReason()` | `?string` | why it would refuse, naming what is missing; `null` when it would go ahead |
+| `needsAttention()` | `bool` | owes work and cannot run it — the third state, and the one with no button |
 
 The report is the only way to read update state. Nothing else in the system queries it
 directly, and nothing reimplements any part of it.
@@ -201,6 +216,15 @@ Two more are worth stating for anything that renders the report.
 and remembers them for the life of that status object; building a status counts nothing.
 A badge on every page of the panel asks `anythingOwed()` and must not pay for a count
 sweep of every declared table of every registered package to get a yes or a no.
+
+**Owing work and being able to do it are different questions.** `owesWork()` says there is
+something to do; `runnable()` says a click would do it rather than be refused. A renderer
+that asked only the first draws a button whose only effect is an exception, and a renderer
+that answered the second for itself — by asking the registry what the package declared —
+would be a second view of update state beside this one. So the report answers both, the
+runner refuses on exactly the same answer, and `unrunnableReason()` is the sentence both
+the operator and the exception are given. `needsAttention()` names the state a renderer
+actually branches on: owes work, has nothing runnable, show the reason instead of a button.
 
 **A package whose manifest cannot be read is broken, not quiet.** The failure belongs to
 that package alone: `isBroken()` is true, `$problem` carries the message naming the file
@@ -251,7 +275,9 @@ an operator is never left stranded on an intermediate version.
 one a package declares must be idempotent.
 
 A run refuses, before it has touched anything, when the library would otherwise have to
-guess. Each throws `UnrunnablePackage` naming the package and what to declare:
+guess. Each throws `UnrunnablePackage` naming the package and what to declare — and each
+except the first is `PackageStatus::unrunnableReason()`, so what a renderer shows an
+operator and what a run refuses on are the same words from the same place:
 
 | Refusal | Why |
 |---|---|
@@ -263,6 +289,56 @@ guess. Each throws `UnrunnablePackage` naming the package and what to declare:
 **Nothing runs on boot.** Registering a package does no work of any kind; the only thing
 that ever touches the schema is this call. Several replicas starting the same schema
 change on deploy is the failure that avoids.
+
+### The topbar notice
+
+On a site with no installer plugin, a package still has to be able to tell an operator
+that its database is behind — otherwise a redeploy quietly leaves a stale schema running.
+The library registers one render hook on the panel's topbar, so the notice is visible from
+every page rather than from a screen an operator has to go and find. There is nothing to
+wire up: package discovery registers the library's provider, and the provider registers
+the hook.
+
+**A host with no Livewire gets no notice, and no complaint.** The notice is a Livewire
+component drawn into a Filament panel, so the provider registers it only where Livewire is
+actually there to draw it — installed *and* its provider registered, which is one question
+to the container. Most packages take this library for its reporting alone, and their own
+test applications are bare Laravel apps with no panel in them; registering a notice such an
+app cannot draw would force every one of them to boot Filament and Livewire, in a
+particular order, for a surface they will never show. A package is not made to boot a panel
+to declare that its database is behind.
+
+The skip is a skip precisely because the notice is optional. A package that cannot render
+one still reports correctly to everything that asks. That is the opposite of a package that
+cannot reach the registry, which reports a stale database as healthy — so that one throws,
+and the two conditions are answered separately and never through each other.
+
+Each package that owes work gets its own badge, naming itself, with the action that brings
+it up to date beside it. A package that owes nothing renders nothing at all, and a panel
+where every package is level renders no notice — the topbar is quiet when it should be.
+A package that owes work the library would refuse to run gets no button: it is badged as
+needing attention and carries `unrunnableReason()` instead, because a click there would
+only ever produce the refusal.
+
+The notice is a renderer and nothing else. Every question it asks goes to
+`PluginUpdates::report()`, and it reimplements no part of it.
+
+**With the installer present, the notice suppresses itself**, leaving the installer's
+Updates page as the one place update state is shown. Presence is detected by asking the
+current panel whether a plugin is registered under the id `installer` — a string, resolved
+at runtime, against Filament's own API. Nothing here imports an installer class, and the
+library must never require `qcentic-edge/filament-installer`: the dependency arrow points
+from packages to this library and never to the installer. Asking the panel is also the
+more accurate question than asking Composer, because the installer's install flow is plain
+routes: a site can have the package installed without registering its panel plugin, and
+then there is no Updates page and this notice is the only surface there is.
+
+**Who sees it** matches the installer's Updates page rather than inventing a second rule:
+super admin where the user model exposes roles, any authenticated panel user on an app with
+no role package. The rule is `Access\Operator`, not a method on the notice, because it is
+not a rendering concern and not the notice's alone — anything else that renders update
+state reads it from there rather than writing its own. The action re-checks before it runs,
+so the gate is not only a rendering decision.
 
 ### The version ledger
 
@@ -300,9 +376,16 @@ composer install
 composer test
 ```
 
-Pest 4 + Orchestra Testbench, self-contained in this repo (no app needed). The library
-depends on nothing but the framework, so the test app boots with nothing but the
-framework and the library's own provider.
+Pest 4 + Orchestra Testbench, self-contained in this repo (no app needed). The default test
+app is a panel, because the notice renders into one: Filament's providers, Livewire's, one
+panel provider and the library's own. They are listed rather than discovered, and listed in
+the order Composer's package discovery would produce — Filament's support provider rebinds a
+Livewire mechanism, and rebinding one Livewire has already registered leaves that mechanism
+stateless.
+
+The `Host` suite boots two other shapes of application, because the library has to hold in
+both: one with the library's provider and nothing else, which is what a consuming package's
+own test app looks like, and one where the library's provider never registered at all.
 
 ## Changelog
 

@@ -6615,12 +6615,13 @@
             "dist": {
                 "type": "path",
                 "url": "../packages/filament-media-drive",
-                "reference": "47f8af8de00ea558a6fe14ba3866d46747f5c8ee"
+                "reference": "e65fbbf6ce67136fa076f328a0798ebb043e890c"
             },
             "require": {
                 "filament/filament": "^5.0",
                 "filament/spatie-laravel-media-library-plugin": "^5.0",
                 "php": "^8.3",
+                "qcentic-edge/plugin-updates": "*",
                 "spatie/laravel-medialibrary": "^11.0",
                 "spatie/laravel-package-tools": "^1.16"
             },
@@ -6654,6 +6655,69 @@
                 "laravel",
                 "media",
                 "spatie"
+            ],
+            "transport-options": {
+                "relative": true
+            }
+        },
+        {
+            "name": "qcentic-edge/plugin-updates",
+            "version": "0.1.0",
+            "dist": {
+                "type": "path",
+                "url": "../packages/plugin-updates",
+                "reference": "b55f52b8874d0ef4c6dd2cdb47868323b55c9089"
+            },
+            "require": {
+                "composer-runtime-api": "^2.2",
+                "filament/filament": "^5.0",
+                "illuminate/database": "^12.0|^13.0",
+                "illuminate/support": "^12.0|^13.0",
+                "php": "^8.3"
+            },
+            "require-dev": {
+                "orchestra/testbench": "^10.0",
+                "pestphp/pest": "^4.0"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "QcenticEdge\\PluginUpdates\\PluginUpdatesServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "QcenticEdge\\PluginUpdates\\": "src/"
+                }
+            },
+            "autoload-dev": {
+                "psr-4": {
+                    "QcenticEdge\\PluginUpdates\\Tests\\": "tests/"
+                }
+            },
+            "scripts": {
+                "test": [
+                    "pest"
+                ]
+            },
+            "license": [
+                "proprietary"
+            ],
+            "authors": [
+                {
+                    "name": "Qcentic Edge",
+                    "role": "Developer"
+                }
+            ],
+            "description": "Shared per-package update tracking: packages register themselves, and the library records which version each package's database is at.",
+            "homepage": "https://github.com/Qcentic-Edge/plugin-updates",
+            "keywords": [
+                "filament",
+                "laravel",
+                "migrations",
+                "updates"
             ],
             "transport-options": {
                 "relative": true

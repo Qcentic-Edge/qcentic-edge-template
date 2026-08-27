@@ -14,8 +14,11 @@ use RuntimeException;
  * skip work a release declared — both of which report a stale database as
  * healthy, which is the one failure this whole arrangement exists to prevent.
  *
- * Each is a mis-declaration by the package, not a fault of the operator's, so
- * the message names the package and says what to declare.
+ * The reasons themselves live on `PackageStatus::unrunnableReason()`, not here.
+ * A renderer has to know a run would be refused *before* it draws a button, so
+ * the reason has to be part of what the report says about a package; having the
+ * exception state it a second time in its own words is how the two drift apart
+ * and an operator is shown one thing and told another.
  */
 final class UnrunnablePackage extends RuntimeException
 {
@@ -26,26 +29,9 @@ final class UnrunnablePackage extends RuntimeException
             .'from its own service provider.');
     }
 
-    public static function withUnreadableDeclaration(string $package, string $problem): self
+    /** @param  string  $reason  from `PackageStatus::unrunnableReason()` — the same words the operator was shown */
+    public static function because(string $package, string $reason): self
     {
-        return new self("The package [{$package}] cannot be updated, because its own declaration cannot "
-            ."be read and so whether it owes a seed is unknown: {$problem} Running it anyway would be "
-            .'running blind.');
-    }
-
-    public static function withoutCodeVersion(string $package): self
-    {
-        return new self("The package [{$package}] cannot be updated, because Composer does not know what "
-            .'version of its code is deployed and so there is no version to advance its database to. '
-            .'Check that it is installed under the same name it registered.');
-    }
-
-    /** @param  list<string>  $versions  the pending releases that asked for a seed */
-    public static function withoutSeeder(string $package, array $versions): self
-    {
-        return new self("The package [{$package}] cannot be updated, because the release(s) ["
-            .implode(', ', $versions).'] ask for a seed and it declared no seeder. Declare one with '
-            .'UpdatablePackage::make(...)->seeder(YourSeeder::class), or set seed => false for those '
-            .'releases. Skipping the seed quietly would lose the data those releases meant to add.');
+        return new self("The package [{$package}] cannot be updated. {$reason}");
     }
 }

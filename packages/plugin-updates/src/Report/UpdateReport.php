@@ -103,6 +103,7 @@ final class UpdateReport
                 title: $package->displayTitle(),
                 storedVersion: $storedVersion,
                 codeVersion: $codeVersion,
+                seederDeclared: $package->seederClass() !== null,
                 problem: $failure->getMessage(),
             );
         }
@@ -117,6 +118,7 @@ final class UpdateReport
             pendingVersions: $pendingVersions,
             pendingMigrations: $this->migrations->inPath($package->migrationPath()),
             seedingVersions: $manifest->seedingAmong($pendingVersions),
+            seederDeclared: $package->seederClass() !== null,
             countTables: fn (): array => array_map($this->countRows(...), $package->tableNames()),
         );
     }

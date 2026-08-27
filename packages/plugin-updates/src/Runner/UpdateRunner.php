@@ -7,8 +7,6 @@ use Illuminate\Database\Migrations\Migrator;
 use Illuminate\Database\Seeder;
 use QcenticEdge\PluginUpdates\Ledger\VersionLedger;
 use QcenticEdge\PluginUpdates\Registry\PackageRegistry;
-use QcenticEdge\PluginUpdates\Registry\UpdatablePackage;
-use QcenticEdge\PluginUpdates\Report\PackageStatus;
 use QcenticEdge\PluginUpdates\Report\UpdateReport;
 
 /**
@@ -57,7 +55,14 @@ final class UpdateRunner
         // for.
         $status = $this->report->status($package);
 
-        $this->refuseUnlessRunnable($status, $declaration);
+        // Refused before anything has been touched, so a refusal never leaves a
+        // half-finished update behind. The three cases are decided on the
+        // status rather than here, because the operator was shown the same
+        // object and must never be offered a button whose only effect is this
+        // exception.
+        if (($refusal = $status->unrunnableReason()) !== null) {
+            throw UnrunnablePackage::because($status->name, $refusal);
+        }
 
         $this->migrate($declaration->migrationPath());
 
@@ -69,31 +74,6 @@ final class UpdateRunner
         // package visibly behind, so the button stays and a second attempt
         // resumes from the first file the migrator has not recorded.
         $this->ledger->record($package, $status->codeVersion);
-    }
-
-    /**
-     * The three facts a run cannot proceed without, checked before it has done
-     * anything, so that a refusal never leaves a half-finished update behind.
-     */
-    private function refuseUnlessRunnable(PackageStatus $status, UpdatablePackage $declaration): void
-    {
-        // Its manifest could not be read, so whether a seed is owed is unknown.
-        if ($status->isBroken()) {
-            throw UnrunnablePackage::withUnreadableDeclaration($status->name, $status->problem);
-        }
-
-        // Composer does not know the package, so there is no version to advance
-        // to, and recording an invented one would report a stale database as
-        // current for ever after.
-        if (! $status->codeVersionKnown()) {
-            throw UnrunnablePackage::withoutCodeVersion($status->name);
-        }
-
-        // A release asked for a seed from a package that owns no seeder. The
-        // library refuses to guess rather than skipping the release's data.
-        if ($status->seedOwed() && $declaration->seederClass() === null) {
-            throw UnrunnablePackage::withoutSeeder($status->name, $status->seedingVersions);
-        }
     }
 
     /**

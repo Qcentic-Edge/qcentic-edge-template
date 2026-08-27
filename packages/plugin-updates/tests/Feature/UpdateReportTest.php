@@ -288,3 +288,79 @@ it('still knows which versions a broken package is between', function () {
     expect($status->storedVersion)->toBe('0.0.1')
         ->and($status->codeVersion)->toBe(libraryComposer()['version']);
 });
+
+/**
+ * Whether a run would be refused, answered before anything draws a button.
+ *
+ * The three cases are the runner's own, read from the report rather than
+ * rediscovered at the call site: a renderer that asked the registry what a
+ * package declared would be a second view of update state beside this one, and
+ * a renderer that asked nothing would draw a button that throws on click.
+ */
+it('says a fully declared package could be run', function () {
+    registerRunPackage();
+
+    $status = runStatus();
+
+    expect($status->owesWork())->toBeTrue()
+        ->and($status->runnable())->toBeTrue()
+        ->and($status->unrunnableReason())->toBeNull()
+        ->and($status->needsAttention())->toBeFalse();
+});
+
+it('refuses to run a package whose manifest it cannot read, and says so', function () {
+    registerBrokenPackage(name: INSTALLED_PACKAGE);
+
+    $status = PluginUpdates::report()->status(INSTALLED_PACKAGE);
+
+    expect($status->owesWork())->toBeTrue()
+        ->and($status->runnable())->toBeFalse()
+        ->and($status->needsAttention())->toBeTrue()
+        ->and($status->unrunnableReason())->toContain('manifest cannot be read')
+        ->and($status->unrunnableReason())->toContain('nowhere.php');
+});
+
+it('refuses to run a package whose deployed version Composer does not know, and says so', function () {
+    // Composer has never heard of the history fixture, so there is no version
+    // to advance its database to — and it owes schema work all the same.
+    registerHistoryPackage();
+
+    $status = historyStatus();
+
+    expect($status->schemaOwed())->toBeTrue()
+        ->and($status->owesWork())->toBeTrue()
+        ->and($status->runnable())->toBeFalse()
+        ->and($status->needsAttention())->toBeTrue()
+        ->and($status->unrunnableReason())->toContain('what version of its code is deployed');
+});
+
+it('refuses to run a package that owes a seed and declared no seeder, and says which releases asked', function () {
+    registerRunPackage(withSeeder: false);
+
+    $status = runStatus();
+
+    expect($status->seedOwed())->toBeTrue()
+        ->and($status->runnable())->toBeFalse()
+        ->and($status->needsAttention())->toBeTrue()
+        ->and($status->unrunnableReason())->toContain('ask for a seed')
+        ->and($status->unrunnableReason())->toContain($status->seedingVersions[0]);
+});
+
+it('tells owing nothing apart from owing work that cannot be run', function () {
+    // Two packages a renderer must not confuse: one is quiet, the other has a
+    // person to fetch. Neither gets a button, and only one of them is fine.
+    registerInstalledPackage();
+    applyHistoryThrough('0.5.0');
+    PluginUpdates::ledger()->record(INSTALLED_PACKAGE, libraryComposer()['version']);
+
+    registerHistoryPackage();
+
+    $quiet = PluginUpdates::report()->status(INSTALLED_PACKAGE);
+    $stuck = historyStatus();
+
+    expect($quiet->owesWork())->toBeFalse()
+        ->and($quiet->needsAttention())->toBeFalse()
+        ->and($quiet->runnable())->toBeTrue()
+        ->and($stuck->owesWork())->toBeTrue()
+        ->and($stuck->needsAttention())->toBeTrue();
+});

@@ -22,9 +22,10 @@ use Closure;
  * applied and whose pending releases all decline a seed owes nothing, however
  * many releases it is behind.
  *
- * There is a third state besides owing and not owing. A package whose manifest
- * cannot be read is *broken*: what it owes is unknown, and unknown is reported
- * as owing attention rather than as owing nothing — see `broken()`.
+ * Owing work and being able to do it are two different questions, and both
+ * renderers ask both. A package can owe work the library will refuse to run —
+ * see `runnable()` — and that third state has to be told apart from owing
+ * nothing, or a renderer draws a button that throws the moment it is pressed.
  */
 final class PackageStatus
 {
@@ -37,8 +38,9 @@ final class PackageStatus
      * @param  list<string>  $pendingVersions  manifest releases above the stored version and at or below the code version, oldest first
      * @param  list<string>  $pendingMigrations  unapplied migration names in this package's own path, in run order
      * @param  list<string>  $seedingVersions  the pending releases that asked for a seed
+     * @param  bool  $seederDeclared  whether the package declared a seeder for those releases to use
      * @param  Closure(): list<TableCount>  $countTables  the declared tables and their row counts, counted only if asked
-     * @param  string|null  $problem  why this package cannot be reported on, null when it can be
+     * @param  string|null  $problem  why this package's own declaration could not be read, null when it could
      */
     public function __construct(
         public readonly string $name,
@@ -48,6 +50,7 @@ final class PackageStatus
         public readonly array $pendingVersions,
         public readonly array $pendingMigrations,
         public readonly array $seedingVersions,
+        public readonly bool $seederDeclared,
         private readonly Closure $countTables,
         public readonly ?string $problem = null,
     ) {}
@@ -60,13 +63,15 @@ final class PackageStatus
      * `owesWork()` is true anyway: a package the library cannot read must never
      * render as quiet beside the ones it can, or a misdeclared package would be
      * indistinguishable from an up-to-date one. `$problem` carries the message
-     * that says which package is misdeclared and how.
+     * that says which package is misdeclared and how, and is the first of the
+     * reasons `unrunnableReason()` gives.
      */
     public static function broken(
         string $name,
         string $title,
         ?string $storedVersion,
         ?string $codeVersion,
+        bool $seederDeclared,
         string $problem,
     ): self {
         return new self(
@@ -77,6 +82,7 @@ final class PackageStatus
             pendingVersions: [],
             pendingMigrations: [],
             seedingVersions: [],
+            seederDeclared: $seederDeclared,
             countTables: static fn (): array => [],
             problem: $problem,
         );
@@ -137,5 +143,67 @@ final class PackageStatus
     public function owesWork(): bool
     {
         return $this->isBroken() || $this->schemaOwed() || $this->seedOwed();
+    }
+
+    /**
+     * Whether `PluginUpdates::run()` would go ahead, or refuse before it had
+     * touched anything.
+     *
+     * Answered here and nowhere else. A renderer has to know this *before* it
+     * draws anything, or it offers a button whose only effect is an exception;
+     * and the alternative — a renderer asking the registry what a package
+     * declared — would be a second view of update state beside the report,
+     * which is exactly what the one-seam rule forbids. The runner asks the same
+     * question of the same object, so what an operator is shown and what a run
+     * decides can never disagree.
+     */
+    public function runnable(): bool
+    {
+        return $this->unrunnableReason() === null;
+    }
+
+    /**
+     * Why a run would be refused, in a sentence that names what is missing —
+     * fit to show an operator, and to carry as the exception's message when a
+     * run is attempted anyway. Null when a run would go ahead.
+     *
+     * Three cases, in the order a run meets them. Each is the same principle:
+     * the library refuses to guess, because guessing here would either invent a
+     * version the database is then wrongly recorded at, or silently skip work a
+     * release declared — and both report a stale database as healthy, which is
+     * the one failure this whole arrangement exists to prevent.
+     */
+    public function unrunnableReason(): ?string
+    {
+        if ($this->isBroken()) {
+            return 'Its own release manifest cannot be read, so whether it owes a seed is unknown and '
+                ."running it would be running blind: {$this->problem}";
+        }
+
+        if (! $this->codeVersionKnown()) {
+            return 'Composer does not know what version of its code is deployed, so there is no version '
+                .'to advance its database to. Check that it is installed under the name it registered.';
+        }
+
+        if ($this->seedOwed() && ! $this->seederDeclared) {
+            return 'The release(s) ['.implode(', ', $this->seedingVersions).'] ask for a seed and it '
+                .'declared no seeder. Declare one with UpdatablePackage::make(...)->seeder(YourSeeder::class), '
+                .'or set seed => false for those releases. Skipping the seed quietly would lose the data '
+                .'those releases meant to add.';
+        }
+
+        return null;
+    }
+
+    /**
+     * Owes work, and none of it can be run — the third state.
+     *
+     * Named here so that both renderers say it the same way. Such a package
+     * gets no button: what it needs is a person looking at the reason, not a
+     * click that would be refused.
+     */
+    public function needsAttention(): bool
+    {
+        return $this->owesWork() && ! $this->runnable();
     }
 }
