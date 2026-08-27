@@ -4,6 +4,7 @@ namespace QcenticEdge\PluginUpdates;
 
 use QcenticEdge\PluginUpdates\Ledger\VersionLedger;
 use QcenticEdge\PluginUpdates\Registry\PackageRegistry;
+use QcenticEdge\PluginUpdates\Report\UpdateReport;
 use QcenticEdge\PluginUpdates\Registry\UpdatablePackage;
 
 /**
@@ -44,5 +45,15 @@ final class PluginUpdates
     public static function ledger(): VersionLedger
     {
         return app(VersionLedger::class);
+    }
+
+    /**
+     * What every registered package owes, right now. This is the only way to
+     * read update state — the installer's page, the topbar notice and the run
+     * action are all views of it, and nothing else queries it directly.
+     */
+    public static function report(): UpdateReport
+    {
+        return app(UpdateReport::class);
     }
 }

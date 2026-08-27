@@ -11,5 +11,5 @@ prefix, no Filament page, never installed directly, arrives transitively.
 - `phpunit.xml` — Pest suite (Feature + Unit)
 
 ## Subdirectories
-- `src/` — `PluginUpdates` entry point, registry, version ledger, Composer version lookup
-- `tests/` — registration, ledger, code-version resolution, not-a-panel-plugin guards
+- `src/` — `PluginUpdates` entry point, registry, version ledger, release manifest, migration diff, and the update report
+- `tests/` — registration, ledger, manifest parsing, the report, schema owed, the multi-version gap, not-a-panel-plugin guards
