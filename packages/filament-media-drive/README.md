@@ -60,6 +60,25 @@ MediaPicker::make('mediaId')
 
 The field only offers media the current user may `view`. Submitting another user's private media id is rejected.
 
+## Updates
+
+This package owns no database schema — no migrations, no seeder, no tables. It still
+declares itself to `qcentic-edge/plugin-updates` from its service provider, so an
+operator's list shows every package the site ships and says this one owes nothing,
+rather than leaving it invisible.
+
+`database/updates.php` records one row per release, seeds only:
+
+```php
+return [
+    '0.1.0' => ['seed' => false],
+];
+```
+
+Shipping a release adds one row and answers one question: does it seed? Nothing
+records schema work here — there is none, and if there ever were, the migration file
+would be the declaration.
+
 ## Tests
 
 Pest tests live in this package (`tests/`). From the Laravel app:
